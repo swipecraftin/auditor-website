@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { dur, ease, easePoints, stagger } from "@/lib/motion";
 
 const css = readFileSync("app/globals.css", "utf8");
-const cssVar = (name: string) => css.match(new RegExp(`${name}:\s*([^;]+);`))?.[1].trim();
+const cssVar = (name: string) => css.match(new RegExp(`${name}:\\s*([^;]+);`))?.[1].trim();
 const ms = (s: number) => `${Math.round(s * 1000)}ms`;
 
 describe("motion tokens", () => {
