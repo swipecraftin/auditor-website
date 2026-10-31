@@ -36,3 +36,39 @@ test.describe("tablet width", () => {
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
   });
 });
+
+// Regression: the registration number ("000000S") is the widest fact value and used to spill out of its cell
+// (and off the screen at 360 px). Check the facts grid at the narrowest widths and around each layout switch.
+for (const width of [320, 360, 1024, 1280]) {
+  test.describe(`facts at ${width}px`, () => {
+    test.use({ viewport: { width, height: 900 } });
+
+    test("no horizontal overflow and every fact value fits its cell", async ({ page }) => {
+      await page.goto("/");
+      await page.evaluate(() => document.fonts.ready);
+      expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+
+      const cells = await page.locator("section[aria-label='Firm facts'] dl dd").evaluateAll((dds) =>
+        dds.map((dd) => {
+          const cell = dd.parentElement as HTMLElement;
+          const range = document.createRange();
+          range.selectNodeContents(dd);
+          const textRight = range.getBoundingClientRect().right;
+          const contentRight = cell.getBoundingClientRect().right - parseFloat(getComputedStyle(cell).paddingRight);
+          return {
+            text: dd.textContent,
+            scrollWidth: dd.scrollWidth,
+            clientWidth: dd.clientWidth,
+            textRight: Math.round(textRight * 10) / 10,
+            contentRight: Math.round(contentRight * 10) / 10,
+          };
+        }),
+      );
+      expect(cells).toHaveLength(4);
+      for (const c of cells) {
+        expect(c.scrollWidth, `${c.text} scrollWidth`).toBeLessThanOrEqual(c.clientWidth);
+        expect(c.textRight, `${c.text} right edge vs cell content edge`).toBeLessThanOrEqual(c.contentRight);
+      }
+    });
+  });
+}
