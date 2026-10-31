@@ -12,8 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // Vendored agent skills are not project code.
+    // Vendored agent skills and local tooling output are not project code.
     ".claude/**",
+    ".superpowers/**",
+    "test-results/**",
+    "playwright-report/**",
+    "coverage/**",
   ]),
 ]);
 
