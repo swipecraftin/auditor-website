@@ -1,10 +1,15 @@
-import { site } from "@/content/site";
+import { Facts } from "@/components/sections/Facts";
+import { Hero } from "@/components/sections/Hero";
+import { Practice } from "@/components/sections/Practice";
+import { Services } from "@/components/sections/Services";
 
 export default function Home() {
   return (
-    <main id="main" className="shell section-y">
-      <p className="label-mono text-muted">{site.hero.eyebrow}</p>
-      <h1 className="mt-6 font-serif text-h1 text-ink">{site.hero.headline.join(" ")}</h1>
+    <main id="main">
+      <Hero />
+      <Facts />
+      <Practice />
+      <Services />
     </main>
   );
 }
