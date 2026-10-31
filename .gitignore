@@ -1,10 +1,13 @@
 # dependencies
 node_modules/
+.pnp
+.pnp.*
 
 # next.js
 .next/
 out/
 next-env.d.ts
+*.tsbuildinfo
 
 # testing
 coverage/
@@ -17,8 +20,10 @@ blob-report/
 !.env.example
 .vercel/
 *.log
+npm-debug.log*
 .DS_Store
 Thumbs.db
+*.pem
 
-# impeccable local state (shared config may be committed later)
+# impeccable local state
 .impeccable/config.local.json
