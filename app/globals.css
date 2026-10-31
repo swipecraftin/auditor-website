@@ -146,3 +146,14 @@
   .is-close .burger-lines::before { transform: rotate(45deg); }
   .is-close .burger-lines::after { transform: rotate(-45deg); }
 }
+
+/* Initial motion states (Task 8) — only when the boot script allowed motion; controllers reveal them. */
+.motion-ok [data-reveal] { opacity: 0; transform: translateY(24px); }
+.motion-ok [data-reveal="scale"] { transform: scale(0.96); }
+.motion-ok [data-line] { transform: scaleX(0); transform-origin: left center; }
+.motion-ok [data-split] { visibility: hidden; }
+.motion-ok [data-hero-fade] { opacity: 0; transform: translateY(12px); }
+
+/* SplitText line masks clip at the line box, which shaves descenders at tight line-heights (h1 is 0.94). Reach 0.15em
+   below it with clip-path instead of overflow; the inline `overflow: clip` SplitText sets needs !important to lose. */
+.split-line-mask { overflow: visible !important; clip-path: inset(0 0 -0.15em 0); }

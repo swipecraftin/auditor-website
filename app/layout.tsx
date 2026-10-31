@@ -4,6 +4,7 @@ import "lenis/dist/lenis.css";
 import { Footer } from "@/components/layout/Footer";
 import { SiteChrome } from "@/components/layout/SiteChrome";
 import { MotionProvider } from "@/components/motion/MotionProvider";
+import { PageMotion } from "@/components/motion/PageMotion";
 import { site } from "@/content/site";
 import "./globals.css";
 
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <SiteChrome />
           {children}
           <Footer />
+          <PageMotion />
         </MotionProvider>
       </body>
     </html>

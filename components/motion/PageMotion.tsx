@@ -1,0 +1,96 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+import { gsap, ScrollTrigger, SplitText, useGSAP } from "@/lib/gsap";
+import { dur, stagger } from "@/lib/motion";
+import { isMotionOk } from "./motion-env";
+
+type SplitMode = "intro" | "lines" | "chars" | "words-scrub";
+
+// Reveal start lines. clamp() keeps a trigger reachable when its element sits in the last viewport of the page
+// (or the page is shorter than the viewport) — a plain "top 85%" would never fire there and the element would stay hidden.
+const START = { reveal: "clamp(top 85%)", line: "clamp(top 90%)", chars: "clamp(top 90%)" } as const;
+
+/** Text of a heading with each <br> read as a space (SplitText's own aria-label would glue "Clarity," to "line"). */
+function headingLabel(el: HTMLElement) {
+  return Array.from(el.childNodes, (n) => (n.nodeName === "BR" ? " " : (n.textContent ?? "")))
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function animateSplit(el: HTMLElement, mode: SplitMode, self: SplitText) {
+  el.style.visibility = "visible";
+  switch (mode) {
+    case "words-scrub": // M6 — words light up as the statement is read
+      return gsap.fromTo(self.words, { opacity: 0.18 }, {
+        opacity: 1, ease: "none", stagger: 0.1,
+        scrollTrigger: { trigger: el, start: "top 70%", end: "bottom 60%", scrub: true },
+      });
+    case "chars": // M14 — footer wordmark
+      return gsap.from(self.chars, {
+        yPercent: 100, duration: 1, ease: "expo.out", stagger: stagger.chars,
+        scrollTrigger: { trigger: el, start: START.chars, once: true },
+      });
+    case "intro": // M1 — hero headline, budget ≤ 1.2 s after fonts are ready
+      return gsap.from(self.lines, { yPercent: 110, duration: dur.heroLines, ease: "expo.out", stagger: stagger.editorial, delay: 0.1 });
+    default: // M5 / M10 — line mask reveals
+      return gsap.from(self.lines, {
+        yPercent: 110, duration: dur.lines, ease: "expo.out", stagger: stagger.editorial,
+        scrollTrigger: { trigger: el, start: START.reveal, once: true },
+      });
+  }
+}
+
+export function PageMotion() {
+  const pathname = usePathname();
+
+  useGSAP(
+    (_context, contextSafe) => {
+      if (!isMotionOk() || !contextSafe) return;
+
+      // M3 / M9 — blocks fade up (cards also scale from 0.96 via CSS initial state)
+      ScrollTrigger.batch("[data-reveal]", {
+        start: START.reveal,
+        once: true,
+        onEnter: (els) =>
+          gsap.to(els, { opacity: 1, y: 0, scale: 1, duration: dur.editorial, ease: "expo.out", stagger: stagger.editorial, overwrite: true }),
+      });
+
+      // M4 — hairlines draw from the left
+      ScrollTrigger.batch("[data-line]", {
+        start: START.line,
+        once: true,
+        onEnter: (els) => gsap.to(els, { scaleX: 1, duration: 1, ease: "expo.out", stagger: stagger.editorial }),
+      });
+
+      const splitAll = contextSafe(() => {
+        document.querySelectorAll<HTMLElement>("[data-split]").forEach((el) => {
+          const mode = (el.dataset.split ?? "lines") as SplitMode;
+          const isHeading = /^H[1-6]$/.test(el.tagName);
+          const label = isHeading ? headingLabel(el) : "";
+          SplitText.create(el, {
+            type: mode === "chars" ? "lines,chars" : mode === "words-scrub" ? "words" : "lines",
+            ...(mode === "words-scrub" ? {} : { mask: "lines" as const }),
+            // Line masks of running headings get `.split-line-mask` (globals.css): its clip reaches below the line box so
+            // descenders survive tight line-heights. The wordmark keeps the plain mask (its chars start exactly one box below).
+            ...(mode === "chars" || mode === "words-scrub" ? {} : { linesClass: "split-line" }),
+            // Headings take an aria-label (the split wrappers are aria-hidden). Running text and values keep their
+            // real text exposed instead: a label on a paragraph is not announced, so hiding its words would silence it.
+            aria: isHeading ? "auto" : "none",
+            autoSplit: true,
+            onSplit: (self: SplitText) => {
+              if (label) el.setAttribute("aria-label", label);
+              return animateSplit(el, mode, self);
+            },
+          });
+        });
+        ScrollTrigger.refresh();
+      });
+      document.fonts.ready.then(splitAll);
+    },
+    { dependencies: [pathname], revertOnUpdate: true },
+  );
+
+  return null;
+}
