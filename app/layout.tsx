@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, IBM_Plex_Mono, Manrope } from "next/font/google";
 import { Footer } from "@/components/layout/Footer";
+import { SiteChrome } from "@/components/layout/SiteChrome";
 import { site } from "@/content/site";
 import "./globals.css";
 
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en-IN" className={`${fraunces.variable} ${manrope.variable} ${plexMono.variable}`} suppressHydrationWarning>
       <body className="bg-bg font-sans text-ink antialiased">
         <a href="#main" className="skip-link">Skip to content</a>
+        <SiteChrome />
         {children}
         <Footer />
       </body>
