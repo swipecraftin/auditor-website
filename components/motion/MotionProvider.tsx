@@ -22,6 +22,18 @@ function hashTarget(hash: string): HTMLElement | null {
   return document.getElementById(id);
 }
 
+/**
+ * preventDefault on a hash link also cancels the browser's move of the sequential-focus starting point
+ * (WCAG 2.4.3), so do it by hand. The timeout lets effects from the same click finish first: closing the menu
+ * focuses the burger, and the section must win.
+ */
+function focusTarget(target: HTMLElement) {
+  window.setTimeout(() => {
+    if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+    target.focus({ preventScroll: true });
+  }, 0);
+}
+
 export function MotionProvider({ children }: { children: React.ReactNode }) {
   const [lenis, setLenis] = useState<Lenis | null>(null);
   const pathname = usePathname();
@@ -45,13 +57,13 @@ export function MotionProvider({ children }: { children: React.ReactNode }) {
       if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const link = (event.target as Element | null)?.closest?.("a[href*='#']") as HTMLAnchorElement | null;
       if (!link || link.origin !== location.origin || link.pathname !== location.pathname || !link.hash) return;
-      // The skip link needs the native jump: only that moves the keyboard focus starting point into <main>.
-      if (link.classList.contains("skip-link")) return;
+      if ((link.target && link.target !== "_self") || link.hasAttribute("download")) return;
       const target = hashTarget(link.hash);
       if (!target) return;
       event.preventDefault();
       instance.scrollTo(target, { force: true }); // Lenis already honours the target's CSS scroll-margin-top
-      history.pushState(null, "", link.hash);
+      if (location.hash !== link.hash) history.pushState(null, "", link.hash);
+      focusTarget(target);
     };
     document.addEventListener("click", onClick, true);
     // Lenis needs the DOM, so it can only be created after mount; publishing it to context is this effect's job.

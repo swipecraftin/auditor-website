@@ -36,13 +36,15 @@ test("a same-page next/link hash link is a smooth scroll, not a navigation", asy
   // The footer "Contact" link is a next/link to /#contact.
   const link = page.getByRole("navigation", { name: "Footer" }).getByRole("link", { name: "Contact" });
   await link.scrollIntoViewIfNeeded();
-  // Watch for Lenis animating: the browser's own hash jump is instant and never sets `lenis-scrolling`.
+  // Lenis flags ANY scroll (even a native one) as `lenis-scrolling`; only a Lenis-driven scroll adds `lenis-smooth`.
+  // Let the native scroll above settle first so it cannot bleed into the probe.
+  await expect(html).not.toHaveClass(/lenis-scrolling/);
   await page.evaluate(() => {
     const w = window as unknown as { __marker?: string; __sawSmooth?: boolean };
     w.__marker = "same-document";
     w.__sawSmooth = false;
     new MutationObserver(() => {
-      if (document.documentElement.classList.contains("lenis-scrolling")) w.__sawSmooth = true;
+      if (document.documentElement.classList.contains("lenis-smooth")) w.__sawSmooth = true;
     }).observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
   });
   await link.click();
@@ -73,6 +75,25 @@ test("the skip link keeps its native focus behaviour", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Skip to content" })).toBeFocused();
   await page.keyboard.press("Enter");
   await page.keyboard.press("Tab");
-  // Native fragment navigation moves the focus starting point into <main>; a preventDefault'd smooth scroll would not.
+  // Native fragment navigation moves the focus starting point into <main>; a preventDefault'd smooth scroll must keep that.
   expect(await page.evaluate(() => Boolean(document.activeElement?.closest("main")))).toBe(true);
+});
+
+test("keyboard activation of an in-page link moves focus to its section", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("a.hero-corner").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#contact")).toBeInViewport();
+  await expect
+    .poll(() => page.evaluate(() => document.activeElement?.id))
+    .toBe("contact");
+});
+
+test("a menu link hands focus to its section, not back to the menu button", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open menu" }).click();
+  await page.getByRole("dialog").getByRole("link", { name: "Partners" }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
+  // The menu's own close effect focuses the burger; the target section must win.
+  await expect(page.locator("#partners")).toBeFocused();
 });
