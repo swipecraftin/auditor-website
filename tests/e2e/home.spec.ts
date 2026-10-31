@@ -72,3 +72,22 @@ for (const width of [320, 360, 1024, 1280]) {
     });
   });
 }
+
+test.describe("home page — lower sections", () => {
+  test("renders process, partners, contact and footer", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("#process li[data-step]")).toHaveCount(4);
+    await expect(page.locator("#partners li")).toHaveCount(4);
+    await expect(page.locator('#contact a[href^="tel:"]')).toHaveCount(1);
+    await expect(page.locator("footer")).toContainText("not an advertisement");
+  });
+
+  test("copy email shows a confirmation", async ({ page, context }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "clipboard check runs once");
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Copy email" }).click();
+    await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("office@firmname.in");
+  });
+});

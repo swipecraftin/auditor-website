@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, IBM_Plex_Mono, Manrope } from "next/font/google";
+import { Footer } from "@/components/layout/Footer";
 import { site } from "@/content/site";
 import "./globals.css";
 
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className="bg-bg font-sans text-ink antialiased">
         <a href="#main" className="skip-link">Skip to content</a>
         {children}
+        <Footer />
       </body>
     </html>
   );
