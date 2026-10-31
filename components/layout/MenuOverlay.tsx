@@ -42,14 +42,20 @@ export function MenuOverlay({ open, onClose, returnFocusTo }: MenuOverlayProps) 
       onClose();
       return;
     }
-    if (event.key !== "Tab" || !ref.current) return;
-    const items = Array.from(ref.current.querySelectorAll<HTMLElement>("a[href], button"));
+    const el = ref.current;
+    if (event.key !== "Tab" || !el) return;
+    const items = Array.from(el.querySelectorAll<HTMLElement>("a[href], button"));
     const first = items[0];
     const last = items[items.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
+    const active = document.activeElement;
+    // Focus on the dialog itself (blank-area click) or outside it: pull it back in.
+    if (active === el || !el.contains(active)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    } else if (event.shiftKey && active === first) {
       event.preventDefault();
       last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
+    } else if (!event.shiftKey && active === last) {
       event.preventDefault();
       first.focus();
     }
@@ -63,9 +69,10 @@ export function MenuOverlay({ open, onClose, returnFocusTo }: MenuOverlayProps) 
       role="dialog"
       aria-modal="true"
       aria-label="Site menu"
+      tabIndex={-1}
       hidden={!open}
       onKeyDown={onKeyDown}
-      className="menu-overlay fixed inset-0 z-50 flex flex-col bg-surface"
+      className="menu-overlay fixed inset-0 z-50 flex flex-col bg-surface outline-none"
     >
       <div className="flex items-center justify-between px-(--gutter) py-6 lg:py-12">
         <span className="flex items-center gap-4">
