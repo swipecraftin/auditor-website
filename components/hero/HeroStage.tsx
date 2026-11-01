@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { Component, useCallback, useEffect, useState, type ReactNode } from "react";
 import { dur, stagger } from "@/lib/motion";
 import { decideHeroTier, readTierEnv, type HeroTier } from "./tier";
 
@@ -12,6 +12,27 @@ type Stage = { tier: HeroTier; capture: boolean };
 // The headline intro (M1, PageMotion) starts when fonts are ready: 0.1 s delay, line reveal, one stagger step for line 2.
 const INTRO_MS = (0.1 + dur.heroLines + stagger.editorial) * 1000;
 const MOUNT_DELAY_MS = INTRO_MS + 400; // margin for a busy main thread
+
+/**
+ * The hero is decoration: if the renderer cannot start (context creation refused, context limit hit, chunk failed to
+ * load), R3F rethrows the error to its parent. Catch it here so it degrades to the poster tier instead of unmounting
+ * the route.
+ */
+class HeroErrorBoundary extends Component<{ onError: () => void; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch() {
+    this.props.onError();
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
 
 export function HeroStage() {
   const [stage, setStage] = useState<Stage | null>(null);
@@ -43,6 +64,17 @@ export function HeroStage() {
     };
   }, []);
 
+  const onCanvasError = useCallback(() => {
+    const hero = document.querySelector("[data-hero]");
+    hero?.setAttribute("data-tier", "poster");
+    hero?.removeAttribute("data-hero-ready"); // in case the scene failed after its first frame
+    setStage((s) => (s ? { ...s, tier: "poster" } : s));
+  }, []);
+
   if (!stage || stage.tier === "poster") return null;
-  return <HeroCanvas tier={stage.tier} capture={stage.capture} />;
+  return (
+    <HeroErrorBoundary onError={onCanvasError}>
+      <HeroCanvas tier={stage.tier} capture={stage.capture} />
+    </HeroErrorBoundary>
+  );
 }

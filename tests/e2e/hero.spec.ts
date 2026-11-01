@@ -49,3 +49,39 @@ test("reduced motion uses the poster tier and never mounts a canvas", async ({ p
   await page.waitForTimeout(4000);
   await expect(page.locator(".hero-canvas")).toHaveCount(0);
 });
+
+test("a WebGL1-only browser gets the poster tier (three r163+ needs WebGL2)", async ({ page }) => {
+  await page.addInitScript(() => {
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+      return type === "webgl2" ? null : Reflect.apply(getContext, this, [type, ...rest]);
+    } as typeof getContext;
+  });
+  await page.goto("/");
+  await expect(page.locator("[data-hero]")).toHaveAttribute("data-tier", "poster");
+  await page.waitForTimeout(4000); // longer than the live-tier mount delay
+  await expect(page.locator(".hero-canvas")).toHaveCount(0);
+  await expect(page.locator("#hero-title")).toBeVisible();
+});
+
+test("a renderer that fails to start falls back to the poster tier instead of crashing the page", async ({ page }) => {
+  // The tier probe gets a real WebGL2 context; every later request (three's renderer) fails, as when a device's
+  // context limit is hit or the requested attributes are refused.
+  await page.addInitScript(() => {
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    let webgl2Calls = 0;
+    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+      if (type === "webgl2" && ++webgl2Calls > 1) return null;
+      return Reflect.apply(getContext, this, [type, ...rest]);
+    } as typeof getContext;
+  });
+  await page.goto("/");
+  const hero = page.locator("[data-hero]");
+  await expect(hero).toHaveAttribute("data-tier", /^(full|lite)$/); // the probe passed: a live tier was chosen
+  await expect(hero).toHaveAttribute("data-tier", "poster", { timeout: 15_000 }); // and it degraded after the failure
+  await expect(page.locator(".hero-canvas")).toHaveCount(0);
+  // An uncaught render error replaces the whole route with Next's "This page couldn't load" screen, so the route's
+  // own content still being there is the proof that the error stayed inside the hero.
+  await expect(page.locator("#hero-title")).toBeVisible();
+  await expect(page.locator("#process")).toBeAttached();
+});

@@ -16,18 +16,24 @@ export function decideHeroTier(env: TierEnv): HeroTier {
   return env.finePointer && env.width >= 1024 ? "full" : "lite";
 }
 
+/**
+ * three r163+ renders with WebGL2 only (a WebGL1 context makes WebGLRenderer throw), so a WebGL1-only device counts as
+ * "no WebGL" here and gets the poster tier (spec §6).
+ */
+export function probeWebGL2(createCanvas: () => Pick<HTMLCanvasElement, "getContext">): boolean {
+  try {
+    const gl = createCanvas().getContext("webgl2");
+    gl?.getExtension("WEBGL_lose_context")?.loseContext();
+    return gl !== null;
+  } catch {
+    return false;
+  }
+}
+
 /** Browser-only: reads the environment for decideHeroTier. */
 export function readTierEnv(): TierEnv {
   const nav = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
-  let webgl = false;
-  try {
-    const canvas = document.createElement("canvas");
-    const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
-    webgl = gl !== null;
-    gl?.getExtension("WEBGL_lose_context")?.loseContext();
-  } catch {
-    webgl = false;
-  }
+  const webgl = probeWebGL2(() => document.createElement("canvas"));
   return {
     reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     webgl,
