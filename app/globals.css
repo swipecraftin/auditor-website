@@ -127,7 +127,11 @@
   }
 }
 
-/* Link and button micro-interactions (M13) */
+/* Link and button micro-interactions (M13)
+   Every hover rule waits while Lenis scrolls (it marks the root `lenis-scrolling`). Lenis scrolls from the main thread,
+   so a resting pointer re-hits whatever passes under it on each frame, and every row or card on the way past would start
+   its hover transitions (spec §7.6: no long tasks while scrolling). Hover lands once the scroll settles, as under native
+   scrolling. No Lenis (reduced motion), no class: hover is immediate. */
 @layer components {
   .link-underline { position: relative; }
   .link-underline::after {
@@ -137,7 +141,7 @@
   }
   .link-underline:focus-visible::after { transform: scaleX(1); }
   @media (hover: hover) and (pointer: fine) {
-    .link-underline:hover::after { transform: scaleX(1); }
+    html:not(.lenis-scrolling) .link-underline:hover::after { transform: scaleX(1); }
   }
 
   .btn { transition: transform var(--dur-press) var(--ease-out); }
@@ -148,7 +152,7 @@
   @media (prefers-reduced-motion: no-preference) {
     a:focus-visible .arrow-nudge { transform: translateX(4px); }
     @media (hover: hover) and (pointer: fine) {
-      a:hover .arrow-nudge { transform: translateX(4px); }
+      html:not(.lenis-scrolling) a:hover .arrow-nudge { transform: translateX(4px); }
     }
   }
 
@@ -224,15 +228,15 @@
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .svc-row:hover::before { opacity: 1; }
+    html:not(.lenis-scrolling) .svc-row:hover::before { opacity: 1; }
   }
   @media (prefers-reduced-motion: no-preference) {
     .svc-row:focus-visible .svc-title { transform: translateX(8px); }
     .svc-row:focus-visible .svc-arrow { transform: translateX(4px) rotate(0deg); }
     @media (hover: hover) and (pointer: fine) {
-      .svc-row:hover .svc-title { transform: translateX(8px); }
-      .svc-row:hover .svc-arrow { transform: translateX(4px) rotate(0deg); }
-      .partner-card:hover .partner-name::after { transform: scaleX(1); }
+      html:not(.lenis-scrolling) .svc-row:hover .svc-title { transform: translateX(8px); }
+      html:not(.lenis-scrolling) .svc-row:hover .svc-arrow { transform: translateX(4px) rotate(0deg); }
+      html:not(.lenis-scrolling) .partner-card:hover .partner-name::after { transform: scaleX(1); }
     }
   }
 }
@@ -240,7 +244,7 @@
 /* Unlayered, like the initial motion states: the summary's `text-muted` utility sits in a later layer than components. */
 .svc-row:focus-visible .svc-summary { color: var(--color-ink); }
 @media (hover: hover) and (pointer: fine) {
-  .svc-row:hover .svc-summary { color: var(--color-ink); }
+  html:not(.lenis-scrolling) .svc-row:hover .svc-summary { color: var(--color-ink); }
 }
 
 /* 3D hero (Task 10) — the canvas fades in over the backdrop once it has rendered */

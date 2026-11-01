@@ -287,6 +287,48 @@ test("service rows respond to hover", async ({ page }, testInfo) => {
   await expect.poll(() => row.evaluate((el) => getComputedStyle(el, "::before").opacity)).toBe("1");
 });
 
+// Spec G2 / §7.6. Lenis scrolls the page from the main thread, so a resting pointer re-hits whatever passes under it on
+// every frame: each service row or partner card would start its hover transitions on the way past. Lenis marks the root
+// with `lenis-scrolling` while it scrolls; hover styles wait for it to settle, as they do under native scrolling.
+test("hover effects wait until a smooth scroll settles", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "hover needs a fine pointer");
+  await page.goto("/");
+  await ready(page);
+  const row = page.locator(".svc-row").first();
+  const card = page.locator(".partner-card").first();
+  const rowWash = () => row.evaluate((el) => getComputedStyle(el, "::before").opacity);
+  const underline = () => card.locator(".partner-name").evaluate((el) => getComputedStyle(el, "::after").transform);
+  const scrolling = (on: boolean) =>
+    page.evaluate((value) => document.documentElement.classList.toggle("lenis-scrolling", value), on);
+
+  // Lenis clears its own native-scroll state 400 ms after the last scroll event, and rewrites its root classes then.
+  const settle = async () => {
+    await page.waitForTimeout(600);
+    await expect(page.locator("html")).not.toHaveClass(/lenis-scrolling/);
+  };
+  await row.scrollIntoViewIfNeeded();
+  await settle();
+  await scrolling(true);
+  await row.hover();
+  await page.waitForTimeout(400); // twice the 200 ms hover transition
+  expect(await rowWash()).toBe("0");
+  await expect(row.locator(".svc-title")).toHaveCSS("transform", "none");
+  await expect(row.locator(".svc-summary")).not.toHaveCSS("color", INK);
+  await scrolling(false);
+  await expect.poll(rowWash).toBe("1");
+  await expect(row.locator(".svc-title")).toHaveCSS("transform", "matrix(1, 0, 0, 1, 8, 0)");
+  await expect(row.locator(".svc-summary")).toHaveCSS("color", INK);
+
+  await card.scrollIntoViewIfNeeded();
+  await settle();
+  await scrolling(true);
+  await card.hover();
+  await page.waitForTimeout(400);
+  expect(await underline()).toBe("matrix(0, 0, 0, 1, 0, 0)");
+  await scrolling(false);
+  await expect.poll(underline).toBe(IDENTITY);
+});
+
 test("service rows mirror the hover on keyboard focus", async ({ page }) => {
   await page.goto("/");
   await ready(page);
