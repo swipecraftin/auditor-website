@@ -46,6 +46,7 @@ async function captureFrames(page: Page, prefix: string) {
 test.describe("visual review captures", () => {
   test.skip(!process.env.VISUAL, "set VISUAL=1");
   test("capture", async ({ page }, info) => {
+    test.slow(); // desktop took 46 and 52 s, then over 60 s (the default): a full page and eight frames under software GL
     await settle(page);
     await page.screenshot({ path: `test-results/shots/${info.project.name}-hero.png` });
     if (!info.project.use.isMobile) {
@@ -72,27 +73,34 @@ test.describe("visual review captures", () => {
   });
 });
 
-test("no long tasks while scrolling at 4× CPU throttle", async ({ page }, info) => {
-  test.skip(!process.env.PERF || info.project.name !== "desktop", "set PERF=1 (desktop project)");
-  if (process.env.PERF_NO_WEBGL) await withoutWebGL(page);
-  await page.goto("/");
-  await page.waitForTimeout(3000);
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
-  await page.evaluate(() => {
-    window.__longTasks = [];
-    new PerformanceObserver((list) => {
-      window.__longTasks?.push(...list.getEntries().map((e) => Math.round(e.duration)));
-    }).observe({ type: "longtask" });
+// Playwright's trace recorder takes a DOM snapshot in the page before and after every action (174 snapshots and 213
+// screencast frames over these 40 wheel steps), on the page's main thread, and the long-task observer counts that work
+// as the page's (same build, poster tier: 31, 31, 37 tasks with tracing, 13, 12, 14 without). The check measures the
+// page, so this test records no trace; the console line below still lists every task.
+test.describe("long tasks", () => {
+  test.use({ trace: "off" });
+  test("no long tasks while scrolling at 4× CPU throttle", async ({ page }, info) => {
+    test.skip(!process.env.PERF || info.project.name !== "desktop", "set PERF=1 (desktop project)");
+    if (process.env.PERF_NO_WEBGL) await withoutWebGL(page);
+    await page.goto("/");
+    await page.waitForTimeout(3000);
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+    await page.evaluate(() => {
+      window.__longTasks = [];
+      new PerformanceObserver((list) => {
+        window.__longTasks?.push(...list.getEntries().map((e) => Math.round(e.duration)));
+      }).observe({ type: "longtask" });
+    });
+    await page.mouse.move(720, 450);
+    for (let i = 0; i < 40; i++) {
+      await page.mouse.wheel(0, 250);
+      await page.waitForTimeout(60);
+    }
+    await page.waitForTimeout(1500);
+    const longTasks = await page.evaluate(() => window.__longTasks ?? []);
+    const tier = await page.locator("[data-hero]").getAttribute("data-tier");
+    console.log(`hero tier: ${tier}; long tasks (ms):`, longTasks);
+    expect(longTasks.filter((d) => d > 50)).toEqual([]);
   });
-  await page.mouse.move(720, 450);
-  for (let i = 0; i < 40; i++) {
-    await page.mouse.wheel(0, 250);
-    await page.waitForTimeout(60);
-  }
-  await page.waitForTimeout(1500);
-  const longTasks = await page.evaluate(() => window.__longTasks ?? []);
-  const tier = await page.locator("[data-hero]").getAttribute("data-tier");
-  console.log(`hero tier: ${tier}; long tasks (ms):`, longTasks);
-  expect(longTasks.filter((d) => d > 50)).toEqual([]);
 });
