@@ -29,18 +29,36 @@ async function withoutWebGL(page: Page) {
   });
 }
 
+/**
+ * The page as a visitor sees it: one viewport per frame, top to bottom, each after its reveals (0.9 s) and the pinned
+ * process scrub have settled. A full-page capture cannot show either (it renders the page at scroll 0, pin spacer and
+ * all), and under mobile emulation Chromium's full-page capture re-renders mid-capture (the hero repeats halfway down).
+ */
+async function captureFrames(page: Page, prefix: string) {
+  const { vh, height } = await page.evaluate(() => ({ vh: window.innerHeight, height: document.documentElement.scrollHeight }));
+  for (let i = 0, y = 0; y < height; i++, y += vh) {
+    await page.evaluate((top) => window.scrollTo(0, top), y);
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: `${prefix}-${String(i).padStart(2, "0")}.png` });
+  }
+}
+
 test.describe("visual review captures", () => {
   test.skip(!process.env.VISUAL, "set VISUAL=1");
   test("capture", async ({ page }, info) => {
     await settle(page);
     await page.screenshot({ path: `test-results/shots/${info.project.name}-hero.png` });
-    await page.screenshot({ path: `test-results/shots/${info.project.name}-full.png`, fullPage: true });
+    if (!info.project.use.isMobile) {
+      await page.screenshot({ path: `test-results/shots/${info.project.name}-full.png`, fullPage: true });
+    }
+    await captureFrames(page, `test-results/shots/frames/${info.project.name}`);
   });
   test.describe("tablet", () => {
     test.use({ viewport: { width: 768, height: 1024 } });
     test("capture", async ({ page }, info) => {
       await settle(page);
-      await page.screenshot({ path: `test-results/shots/tablet-${info.project.name}-full.png`, fullPage: true });
+      if (info.project.use.isMobile) await captureFrames(page, `test-results/shots/frames/tablet-${info.project.name}`);
+      else await page.screenshot({ path: `test-results/shots/tablet-${info.project.name}-full.png`, fullPage: true });
     });
   });
   // The smallest full-tier hero: the copy sits closest to the fan's crown here.
