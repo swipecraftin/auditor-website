@@ -8,7 +8,9 @@ export function Contact() {
     <section id="contact" aria-labelledby="contact-title" className="section-y border-t border-line">
       <div className="shell">
         <h2 id="contact-title" data-split="lines" className="max-w-[14ch] font-serif text-h2 text-ink">Contact the partners</h2>
-        <div className="mt-12 grid gap-12 md:grid-cols-3 lg:mt-16">
+        {/* Three columns from 1024 px. At tablet width a third (192 px) is narrower than the call button, which broke the
+            phone number in two; two columns there, Hours below. */}
+        <div className="mt-12 grid gap-12 md:grid-cols-2 lg:mt-16 lg:grid-cols-3">
           <div data-reveal>
             <h3 className="label-mono text-muted">Visit</h3>
             <address className="mt-4 text-body not-italic text-ink">
@@ -24,7 +26,7 @@ export function Contact() {
             <h3 className="label-mono text-muted">Call &amp; write</h3>
             {/* data-magnetic sits on a wrapper so the magnetic transform never overrides .btn:active */}
             <span data-magnetic className="mt-4 inline-block">
-              <a href={`tel:${tel}`} className="btn inline-flex items-center gap-3 border border-ink px-6 py-4 text-ink">
+              <a href={`tel:${tel}`} className="btn inline-flex items-center gap-3 border border-ink px-6 py-4 whitespace-nowrap text-ink">
                 {contact.phone} <span aria-hidden className="arrow-nudge">→</span>
               </a>
             </span>

@@ -132,6 +132,28 @@ for (const width of [320, 640, 1024, 1280, 1440]) {
   });
 }
 
+// Visual review: at 768 px the three contact columns are 192 px wide and the call button broke the phone number in two
+// ("+91 00000 / 00000"). A phone number reads as one unit.
+for (const width of [320, 768, 1024]) {
+  test.describe(`contact at ${width}px`, () => {
+    test.use({ viewport: { width, height: 900 } });
+
+    test("the call button keeps the phone number on one line, inside its column", async ({ page }) => {
+      await page.goto("/");
+      await page.evaluate(() => document.fonts.ready);
+      const { lines, spill } = await page.locator("#contact a[href^='tel:']").evaluate((a) => {
+        const range = document.createRange();
+        range.selectNodeContents(a.firstChild!); // the number's text node
+        const tops = new Set([...range.getClientRects()].map((r) => Math.round(r.top)));
+        const column = a.closest("[data-reveal]")!.getBoundingClientRect();
+        return { lines: tops.size, spill: Math.round(a.getBoundingClientRect().right - column.right) };
+      });
+      expect(lines).toBe(1);
+      expect(spill).toBeLessThanOrEqual(0);
+    });
+  });
+}
+
 // Regression: the registration number ("000000S") is the widest fact value and used to spill out of its cell
 // (and off the screen at 360 px). Check the facts grid at the narrowest widths and around each layout switch.
 for (const width of [320, 360, 1024, 1280]) {
