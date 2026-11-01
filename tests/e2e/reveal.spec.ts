@@ -32,6 +32,54 @@ test("every revealed element ends fully visible after scrolling", async ({ page 
   expect(await hiddenSplitCount(page)).toBe(0);
 });
 
+type ReadProbe = { on: boolean; reads: string[] };
+
+// Spec G2 / §7.6: no main-thread task over 50 ms while scrolling. A reveal tween starts inside a scroll frame, after that
+// frame's style writes. The first time GSAP tweens an element it reads the element's computed opacity and transform
+// (and, while it is translated, its offsetHeight), and each read forces a style recalc or a layout there. PageMotion
+// primes the start values once at setup, so starting a reveal while scrolling reads nothing back.
+test("reveals and hairlines started while scrolling read no styles or layout back", async ({ page }) => {
+  await page.addInitScript(() => {
+    const probe: ReadProbe = { on: false, reads: [] };
+    (window as unknown as { __reads: ReadProbe }).__reads = probe;
+    const note = (kind: string, el: unknown) => {
+      if (probe.on && el instanceof Element && el.matches("[data-reveal], [data-line]")) probe.reads.push(`${kind} ${el.tagName}`);
+    };
+    const computed = window.getComputedStyle;
+    window.getComputedStyle = function (this: Window, el: Element, pseudo?: string | null) {
+      note("getComputedStyle", el);
+      return Reflect.apply(computed, this, [el, pseudo]);
+    };
+    for (const prop of ["offsetHeight", "offsetWidth", "offsetTop", "offsetLeft"] as const) {
+      const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, prop)!;
+      Object.defineProperty(HTMLElement.prototype, prop, {
+        ...descriptor,
+        get(this: HTMLElement) {
+          note(prop, this);
+          return descriptor.get!.call(this);
+        },
+      });
+    }
+  });
+  await page.goto("/");
+  await ready(page);
+  await page.waitForFunction(() => document.fonts.status === "loaded");
+  await page.waitForTimeout(1500); // the post-fonts split and refresh are done: only the scroll is measured
+  const below = await page.$$eval("[data-reveal], [data-line]", (els) => els.filter((el) => el.getBoundingClientRect().top > innerHeight).length);
+  expect(below).toBeGreaterThan(5); // the scroll really starts reveals, or the test proves nothing
+  await page.evaluate(() => {
+    (window as unknown as { __reads: ReadProbe }).__reads.on = true;
+  });
+  await scrollThroughPage(page);
+  const reads = await page.evaluate(() => {
+    const probe = (window as unknown as { __reads: ReadProbe }).__reads;
+    probe.on = false;
+    return probe.reads;
+  });
+  expect(reads).toEqual([]);
+  expect(await page.$$eval("[data-reveal]", notFullyVisible("[data-reveal]"))).toEqual([]);
+});
+
 test("reduced motion shows everything immediately", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");

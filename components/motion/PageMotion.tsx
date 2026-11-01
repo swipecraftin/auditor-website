@@ -46,6 +46,12 @@ function animateSplit(el: HTMLElement, mode: SplitMode, self: SplitText) {
   }
 }
 
+/** gsap.set on what `selector` matches; a page without such elements (the disclaimer has no hairlines) sets nothing. */
+function prime(selector: string, vars: gsap.TweenVars) {
+  const targets = gsap.utils.toArray<HTMLElement>(selector);
+  if (targets.length) gsap.set(targets, vars);
+}
+
 export function PageMotion() {
   const pathname = usePathname();
 
@@ -53,7 +59,16 @@ export function PageMotion() {
     (_context, contextSafe) => {
       if (!isMotionOk() || !contextSafe) return;
 
-      // M3 / M9 — blocks fade up (cards also scale from 0.96 via CSS initial state)
+      // The CSS start states (globals.css) cover the page until hydration. Hand the same values to GSAP now, before the
+      // batches: GSAP reads an element's computed opacity and transform (and, while it is translated, its offsetHeight)
+      // the first time it tweens it, and a reveal starts inside a scroll frame, after that frame's style writes, so each
+      // read there forces a style recalc or a layout mid-scroll (spec §7.6). One set reads all its targets, then writes.
+      // Before the batches, so content above the fold is never hidden again after its reveal starts.
+      prime("[data-reveal]:not([data-reveal='scale'])", { opacity: 0, y: 24 });
+      prime("[data-reveal='scale']", { opacity: 0, scale: 0.96 });
+      prime("[data-line]", { scaleX: 0 });
+
+      // M3 / M9 — blocks fade up (cards also scale from 0.96)
       ScrollTrigger.batch("[data-reveal]", {
         start: START.reveal,
         once: true,
