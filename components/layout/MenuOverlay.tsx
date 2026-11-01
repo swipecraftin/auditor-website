@@ -63,13 +63,16 @@ export function MenuOverlay({ open, onClose, returnFocusTo }: MenuOverlayProps) 
       el.querySelector<HTMLElement>("[data-menu-close]")?.focus();
     } else if (wasOpen.current) {
       wasOpen.current = false;
-      if (!tl) gsap.set(el, { clearProps: "visibility,clipPath" });
-      // Closed before the wipe drew a frame (fast double press, busy first load): a reverse from time 0 never fires
-      // onReverseComplete, which would leave the overlay `visible`, so stop the pending play and hide it directly.
-      else if (tl.time() === 0) {
+      if (!tl) {
+        gsap.set(el, { clearProps: "visibility,clipPath" });
+      } else if (tl.time() === 0) {
+        // Closed before the wipe drew a frame (fast double press, busy first load): a reverse from time 0 never fires
+        // onReverseComplete, which would leave the overlay `visible`, so stop the pending play and hide it directly.
         tl.pause(0);
         gsap.set(el, { visibility: "hidden" });
-      } else tl.timeScale(tl.duration() / dur.overlayClose).reverse();
+      } else {
+        tl.timeScale(tl.duration() / dur.overlayClose).reverse();
+      }
       // Synchronously, never in a GSAP callback: after a same-page hash link, MotionProvider focuses the target section
       // in a setTimeout(0), and that must land after (and so win over) this.
       returnFocusTo.current?.focus();
