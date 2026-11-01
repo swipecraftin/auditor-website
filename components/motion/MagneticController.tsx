@@ -17,8 +17,13 @@ export function MagneticController() {
         const yTo = gsap.quickTo(el, "y", { duration: 0.3, ease: "ui-out" });
         const move = (e: PointerEvent) => {
           const r = el.getBoundingClientRect();
-          xTo(gsap.utils.clamp(-1, 1, (e.clientX - r.left - r.width / 2) / (r.width / 2)) * STRENGTH);
-          yTo(gsap.utils.clamp(-1, 1, (e.clientY - r.top - r.height / 2) / (r.height / 2)) * STRENGTH);
+          // Pointer offset from the centre, each axis normalised to the half-size (±1 at the edges).
+          const nx = (e.clientX - r.left - r.width / 2) / (r.width / 2);
+          const ny = (e.clientY - r.top - r.height / 2) / (r.height / 2);
+          // "Max 8 px" bounds the length of the pull: towards a corner both axes pull, so scale the vector, not each axis.
+          const scale = STRENGTH / Math.max(1, Math.hypot(nx, ny));
+          xTo(nx * scale);
+          yTo(ny * scale);
         };
         const leave = () => {
           xTo(0);

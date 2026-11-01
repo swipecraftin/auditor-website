@@ -216,6 +216,38 @@ test("reveals below the pinned process fire when they reach the viewport, not be
   await expect.poll(linesMoving).toBe(0);
 });
 
+test("before hydration the process steps already sit where their motion starts, and show if it never comes", async ({ page }, testInfo) => {
+  // Client JS never loads: the inline boot script still sets `motion-ok`, but no controller runs. This is what a visitor
+  // sees between first paint and hydration, so it must match the controller's start state, or the steps paint in their
+  // final state and then jump.
+  await page.route(/\/_next\/static\/.+\.js(\?|$)/, (route) => route.abort());
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveClass(/\bmotion-ok\b/); // still inside the boot script's 4 s window
+  const state = () =>
+    page.locator("[data-step]").evaluateAll((els) =>
+      els.map((el) => {
+        const body = el.querySelector("[data-step-body]")!;
+        const y = (node: Element) => Math.round(new DOMMatrix(getComputedStyle(node).transform).f);
+        return { step: getComputedStyle(el).opacity, stepY: y(el), body: getComputedStyle(body).opacity, bodyY: y(body) };
+      }),
+    );
+  if (testInfo.project.name === "desktop") {
+    // ProcessMotion's pinned branch: step 1 active, the others dimmed with their bodies hidden 16 px down.
+    expect(await state()).toEqual([
+      { step: "1", stepY: 0, body: "1", bodyY: 0 },
+      { step: "0.35", stepY: 0, body: "0", bodyY: 16 },
+      { step: "0.35", stepY: 0, body: "0", bodyY: 16 },
+      { step: "0.35", stepY: 0, body: "0", bodyY: 16 },
+    ]);
+  } else {
+    // The unpinned branch: every step waits for its M3 reveal, 24 px down.
+    expect(await state()).toEqual(Array(4).fill({ step: "0", stepY: 24, body: "1", bodyY: 0 }));
+  }
+  // The boot script's safety net: no hydration within 4 s drops `motion-ok`, and the steps show in full.
+  await expect(page.locator("html")).not.toHaveClass(/\bmotion-ok\b/, { timeout: 8000 });
+  expect(await state()).toEqual(Array(4).fill({ step: "1", stepY: 0, body: "1", bodyY: 0 }));
+});
+
 test("on mobile the process steps reveal as they scroll in", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile", "the unpinned branch is mobile-only");
   await page.goto("/");
@@ -301,6 +333,8 @@ test("the contact call button leans toward the pointer, at most 8 px, and settle
   expect(pulled.x).toBeLessThanOrEqual(8);
   expect(pulled.y).toBeGreaterThan(0);
   expect(pulled.y).toBeLessThanOrEqual(8);
+  // M10 "max 8 px" is the length of the pull: near a corner both axes pull, and together they must not exceed it.
+  expect(Math.hypot(pulled.x, pulled.y)).toBeLessThanOrEqual(8.01);
   await page.mouse.move(box.x - 200, box.y - 200, { steps: 4 });
   await expect.poll(offset).toEqual({ x: 0, y: 0 });
 });

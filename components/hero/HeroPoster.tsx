@@ -24,7 +24,9 @@ export function HeroPoster({ force = false }: { force?: boolean }) {
   const media = (clauses = [""]) =>
     clauses.map((clause) => [force ? "" : REDUCED, clause].filter(Boolean).join(" and ")).join(", ") || undefined;
   return (
-    <picture className={`hero-poster pointer-events-none absolute inset-0 -z-20${force ? " hero-poster-forced" : ""}`}>
+    // `-z-20` must stay a whole token: glued to a `${…}` Tailwind never generated it, and the poster stacked at `auto`,
+    // above the canvas and the scrim.
+    <picture className={`${force ? "hero-poster-forced " : ""}hero-poster pointer-events-none absolute inset-0 -z-20`}>
       <source media={media(PORTRAIT_HERO)} srcSet="/hero/ledger-poster-portrait.avif" type="image/avif" />
       <source media={media(PORTRAIT_HERO)} srcSet="/hero/ledger-poster-portrait.webp" type="image/webp" />
       <source media={media()} srcSet="/hero/ledger-poster.avif" type="image/avif" />
@@ -32,6 +34,8 @@ export function HeroPoster({ force = false }: { force?: boolean }) {
       <img
         src={force ? "/hero/ledger-poster.webp" : TRANSPARENT_PIXEL}
         alt=""
+        // Reduced-motion visitors: this is the hero's largest paint (LCP). Live-3D visitors load only a data: pixel here.
+        fetchPriority="high"
         decoding="async"
         className="size-full object-cover object-bottom"
       />

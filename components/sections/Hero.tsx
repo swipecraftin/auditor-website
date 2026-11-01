@@ -9,6 +9,8 @@ export function Hero() {
       <div aria-hidden className="hero-backdrop absolute inset-0 -z-30" />
       <HeroPoster />
       <HeroStage />
+      {/* Over the 3D stage (canvas or poster), under the copy: keeps the copy legible where it meets the fan's crown. */}
+      <div aria-hidden className="hero-scrim pointer-events-none absolute inset-0" />
 
       <div className="hero-copy absolute inset-x-0 top-32 px-(--gutter) text-center lg:top-40">
         <p data-hero-fade className="label-mono text-muted">{hero.eyebrow}</p>

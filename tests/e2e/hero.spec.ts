@@ -85,3 +85,29 @@ test("a renderer that fails to start falls back to the poster tier instead of cr
   await expect(page.locator("#hero-title")).toBeVisible();
   await expect(page.locator("#process")).toBeAttached();
 });
+
+test("a dark scrim sits between the 3D stage and the hero copy, and stays out of the poster capture", async ({ page }) => {
+  await page.goto("/");
+  const scrim = page.locator("[data-hero] > .hero-scrim");
+  await expect(scrim).toHaveCount(1);
+  await expect(scrim).toHaveAttribute("aria-hidden", "true");
+  await expect(scrim).toHaveCSS("pointer-events", "none");
+  await expect(scrim).toHaveCSS("position", "absolute"); // out of flow: no layout shift
+  expect(await scrim.evaluate((el) => getComputedStyle(el).backgroundImage)).toMatch(/radial-gradient/);
+  // Paint order inside the hero's isolated stacking context: poster and canvas below the scrim, the copy (z auto) above.
+  await expect(page.locator("[data-hero] > .hero-canvas")).toBeAttached({ timeout: 30_000 });
+  const z = await page.evaluate(() => {
+    const zOf = (selector: string) => Number(getComputedStyle(document.querySelector(selector)!).zIndex);
+    return { poster: zOf("[data-hero] > .hero-poster"), canvas: zOf("[data-hero] > .hero-canvas"), scrim: zOf("[data-hero] > .hero-scrim") };
+  });
+  expect(z.scrim).toBeGreaterThan(z.canvas);
+  expect(z.scrim).toBeGreaterThan(z.poster);
+  expect(z.scrim).toBeLessThan(0);
+  expect(await page.locator(".hero-copy").evaluate((el) => getComputedStyle(el).zIndex)).toBe("auto");
+
+  // scripts/render-poster.mjs screenshots the canvas box in capture mode: the scrim must not be baked into the poster,
+  // which the scrim then covers again on the page.
+  await page.goto("/?capture=1");
+  await expect(page.locator("html")).toHaveClass(/\bcapture\b/);
+  await expect(scrim).toHaveCSS("opacity", "0");
+});

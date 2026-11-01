@@ -131,6 +131,16 @@ test("keyboard activation of an in-page link moves focus to its section", async 
     .toBe("contact");
 });
 
+test("under reduced motion, keyboard activation of an in-page link still moves focus to its section", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await ready(page); // hydrated: the click handler is attached
+  await page.locator("a.hero-corner").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#contact")).toBeInViewport();
+  await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe("contact");
+});
+
 test("a menu link hands focus to its section, not back to the menu button", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Open menu" }).click();
@@ -189,6 +199,25 @@ test.describe("hash links from another page", () => {
 
     if (testInfo.project.name === "desktop") await expectPinScrubs(page);
   });
+
+  // The header decides hidden / solid from scroll updates. Landing on a section past the hero is a jump it must follow at
+  // once (solid, and shown: the visitor just navigated), not on the first scroll after it.
+  for (const mode of ["smooth scroll", "reduced motion"] as const) {
+    test(`arriving past the hero turns the header solid and keeps it shown (${mode})`, async ({ page }) => {
+      if (mode === "reduced motion") await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.goto("/disclaimer");
+      await ready(page);
+      const header = page.locator("[data-site-header]");
+      await expect(header).toHaveAttribute("data-solid", "false"); // at the top of a hero-less page: the start state
+      await page.getByRole("button", { name: "Open menu" }).click();
+      await page.getByRole("dialog").getByRole("link", { name: "Partners" }).click();
+      await expect(page).toHaveURL(/\/#partners$/);
+      await expect(page.getByRole("dialog")).toBeHidden();
+      await expectLanded(page, "partners"); // no scroll happens after this
+      await expect(header).toHaveAttribute("data-solid", "true");
+      await expect(header).toHaveCSS("transform", /^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+    });
+  }
 
   for (const via of ["menu", "footer"] as const) {
     test(`under reduced motion, the ${via} link lands natively on its section`, async ({ page }, testInfo) => {

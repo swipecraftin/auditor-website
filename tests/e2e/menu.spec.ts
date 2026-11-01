@@ -198,4 +198,6 @@ test("under reduced motion a menu link still reaches its section", async ({ page
   await expect(page.getByRole("dialog")).toBeHidden();
   await expect(page.locator("#partners")).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe("");
+  // R16 without Lenis too: focus follows the navigation, it does not stay on the burger the menu's close refocused.
+  await expect(page.locator("#partners")).toBeFocused();
 });

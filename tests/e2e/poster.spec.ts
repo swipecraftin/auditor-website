@@ -33,7 +33,10 @@ test("poster and Open Graph assets are served", async ({ page, request }) => {
   expect((await request.get(imageUrl.pathname + imageUrl.search)).status()).toBe(200);
 });
 
-test("reduced motion shows the server-rendered poster image", async ({ page }, testInfo) => {
+test("reduced motion shows the server-rendered poster image", async ({ page, request }, testInfo) => {
+  // For these visitors the poster is the hero's largest paint: it is fetched at high priority from the server HTML on.
+  const html = await (await request.get("/")).text();
+  expect(html).toMatch(/<picture[^>]*hero-poster[^]*?<img[^>]*fetchpriority="high"/i);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   expect(await currentSrc(page, ".hero-poster img")).toMatch(posterSrc(testInfo.project.name));

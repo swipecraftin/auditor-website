@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, type RefObject } from "react";
-import { isMotionOk } from "@/components/motion/motion-env";
+import { isJumping, isMotionOk } from "@/components/motion/motion-env";
 import { Monogram } from "@/components/ui/Monogram";
 import { site } from "@/content/site";
 import { gsap, ScrollTrigger, useGSAP } from "@/lib/gsap";
@@ -48,12 +48,24 @@ export function Header({ menuOpen, onOpen, burgerRef }: HeaderProps) {
       // focus, so `contains(activeElement)` would keep the header pinned in place for the rest of the visit.
       const focusInside = () => el.querySelector(":focus-visible") !== null;
       const update = (y: number) => {
+        // A landing after a route change moves the page without a scroll gesture: sync the position, keep hidden as is.
+        if (isJumping()) lastY = y;
         apply(nextHeaderState({ y, lastY, menuOpen: menuOpenRef.current, focusInside: focusInside(), heroHeight }, state));
         lastY = y;
       };
       measure();
       update(window.scrollY);
-      ScrollTrigger.create({ start: 0, end: "max", onRefresh: measure, onUpdate: (self) => update(self.scroll()) });
+      ScrollTrigger.create({
+        start: 0,
+        end: "max",
+        // This setup runs before the new route has landed on its hash target, and a landing can leave the scroll progress
+        // where the refresh measured it, so no onUpdate follows: take the header's state from the refresh as well.
+        onRefresh: (self) => {
+          measure();
+          update(self.scroll());
+        },
+        onUpdate: (self) => update(self.scroll()),
+      });
       // M11 "never hidden while focus is inside": the rule above only runs on scroll, so a Tab into a hidden header
       // would leave the focused control off-screen. Re-run it when focus enters.
       const onFocusIn = () => update(lastY);

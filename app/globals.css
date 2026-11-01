@@ -106,6 +106,16 @@
       var(--color-bg);
   }
   .hero-corner { background: rgb(11 11 12 / 0.4); backdrop-filter: blur(8px); }
+  /* The mockup's scrim (docs/design/mockup/cred-hero.html `.hero::after`): a dark pool behind the copy and a top/bottom
+     vignette for the header and the corner box. The pool is placed in px because the copy is (top-32 / lg:top-40): at
+     a short hero (1024 × 768) the copy meets the fan's crown, and a pool in % of the hero height would sit above it.
+     z-index: above the poster (-20) and the canvas (-10), below the copy (auto). */
+  .hero-scrim {
+    z-index: -5;
+    background:
+      radial-gradient(64% 300px at 50% 300px, rgb(11 11 12 / 0.86), rgb(11 11 12 / 0.6) 45%, transparent 80%),
+      linear-gradient(to bottom, rgb(11 11 12 / 0.6), transparent 22%, transparent 78%, rgb(11 11 12 / 0.95));
+  }
 }
 
 /* Link and button micro-interactions (M13) */
@@ -153,6 +163,16 @@
 .motion-ok [data-line] { transform: scaleX(0); transform-origin: left center; }
 .motion-ok [data-split] { visibility: hidden; }
 .motion-ok [data-hero-fade] { opacity: 0; transform: translateY(12px); }
+/* Process steps (M8) paint where ProcessMotion starts them, so they never show final and then jump at hydration. The
+   media queries are the controller's own gsap.matchMedia conditions. Desktop pins: step 1 active, the others dimmed with
+   their bodies hidden. Below it, each step waits for its reveal. */
+@media (min-width: 1024px) {
+  .motion-ok [data-step]:not(:first-child) { opacity: 0.35; }
+  .motion-ok [data-step]:not(:first-child) [data-step-body] { opacity: 0; transform: translateY(16px); }
+}
+@media (max-width: 1023.98px) {
+  .motion-ok [data-step] { opacity: 0; transform: translateY(24px); }
+}
 
 /* SplitText line masks clip at the line box, which shaves descenders at tight line-heights (h1 is 0.94). Reach 0.15em
    below it with clip-path instead of overflow; the inline `overflow: clip` SplitText sets needs !important to lose. */
