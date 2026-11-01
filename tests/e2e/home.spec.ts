@@ -28,6 +28,15 @@ test.describe("home page", () => {
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
   });
 
+  // At 390 px a service title broke as "Company Law & / ROC" and a summary left "audits." alone on its last line.
+  test("headings balance their lines and running text avoids a lone last word", async ({ page }) => {
+    await page.goto("/");
+    const wrap = (selector: string) =>
+      page.locator(selector).first().evaluate((el) => getComputedStyle(el).textWrapStyle);
+    for (const heading of ["#services h3", "#process h3", "#partners h2", "#contact h2"]) expect(await wrap(heading)).toBe("balance");
+    for (const text of ["#services .svc-summary", "#process [data-step-body]", "#partners p", "footer p"]) expect(await wrap(text)).toBe("pretty");
+  });
+
   // WCAG 2.5.3 label in name (axe / Lighthouse "label-content-name-mismatch"): an aria-label replaces the link's text
   // in its accessible name, so the monogram the link shows was missing from the name it announces.
   test("the header's home link takes its accessible name from the text it shows", async ({ page }) => {

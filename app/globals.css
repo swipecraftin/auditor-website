@@ -59,6 +59,9 @@
   /* Programmatic-only focus targets (hash-link destinations, dialogs): focus lands there, no ring around a whole section. */
   [tabindex="-1"]:focus { outline: none; }
   ::selection { background: var(--color-brass); color: var(--color-bg); }
+  /* Headings break into even lines ("Company Law & / ROC" no more); running text keeps its last word company. */
+  h1, h2, h3 { text-wrap: balance; }
+  p { text-wrap: pretty; }
   section[id] { scroll-margin-top: 96px; }
 }
 
