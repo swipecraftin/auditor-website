@@ -2,7 +2,7 @@
 
 import Lenis from "lenis";
 import { usePathname } from "next/navigation";
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
 
 const LenisContext = createContext<Lenis | null>(null);
@@ -93,12 +93,29 @@ export function MotionProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // After client-side route changes, jump to the hash (or top) and re-measure triggers.
-  useEffect(() => {
-    if (!lenis || lastPath.current === pathname) return;
+  // After a client-side route change, land on the hash target (or the top). Next has already scrolled the target into
+  // view, but before the new page was fully measured: re-measure, then jump. A layout effect runs after every child
+  // layout effect of this commit (Next's own hash scroll, the controllers' triggers, the process pin included) and
+  // before paint, so the page never shows the wrong spot first. The passive phase can come several frames later (the
+  // hero canvas mounts in it).
+  useLayoutEffect(() => {
+    if (lastPath.current === pathname) return;
     lastPath.current = pathname;
-    lenis.scrollTo(hashTarget(location.hash) ?? 0, { immediate: true, force: true });
+    const target = hashTarget(location.hash);
+    // Next scrolls before the process pin's 200 % spacer is in (the pin's own first refresh is deferred). Refresh every
+    // trigger now, so the spacer is in and everything below it is measured with it.
     ScrollTrigger.refresh();
+    if (lenis) {
+      // After the refresh, never before: Lenis caches the scroll limit (its own re-measure is debounced by 250 ms) and
+      // clamps scrollTo to it, so a limit from the old page, or one taken without the spacer, stops the jump short.
+      // resize() also syncs Lenis's scroll position to the page's.
+      lenis.resize();
+      lenis.scrollTo(target ? scrollDestination(target) : 0, { immediate: true, force: true });
+    } else if (target) {
+      target.scrollIntoView(); // reduced motion: native jump, honours scroll-margin-top
+    }
+    // R16 for arrivals from another page: focus follows the navigation (not the menu's burger refocus).
+    if (target) focusTarget(target);
   }, [pathname, lenis]);
 
   return <LenisContext.Provider value={lenis}>{children}</LenisContext.Provider>;

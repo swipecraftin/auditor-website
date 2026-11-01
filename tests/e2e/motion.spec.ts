@@ -1,8 +1,47 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 // Lenis 1.3 puts the bare `lenis` class on <html> (plus lenis-smooth / lenis-scrolling / ... modifiers).
 // `\blenis\b` would also match `lenis-stopped`, so match the bare class token only.
 const LENIS_CLASS = /(^|\s)lenis(\s|$)/;
+
+/** Hydration done (`motion-ready`) and, when motion is allowed, Lenis running. */
+async function ready(page: Page) {
+  await page.waitForSelector("html.motion-ready");
+  await page.waitForFunction(() => {
+    const cl = document.documentElement.classList;
+    return !cl.contains("motion-ok") || cl.contains("lenis");
+  });
+}
+
+/**
+ * How far (px) a section sits from where a hash jump must put it: its scroll-margin-top below the viewport top, or, for a
+ * section too close to the page end to reach that line, as high as the maximum scroll allows. 0 = landed exactly.
+ */
+const landingError = (page: Page, id: string) =>
+  page.locator(`#${id}`).evaluate((el) => {
+    const margin = parseFloat(getComputedStyle(el).scrollMarginTop) || 0;
+    const top = el.getBoundingClientRect().top;
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    const expected = Math.max(margin, top + window.scrollY - max);
+    return Math.round(Math.abs(top - expected));
+  });
+
+/** Lands within 2 px of its line, and is still there after any late re-measure (fonts, split headings, the pin). */
+async function expectLanded(page: Page, id: string) {
+  await expect.poll(() => landingError(page, id)).toBeLessThanOrEqual(2);
+  await page.waitForTimeout(800);
+  expect(await landingError(page, id)).toBeLessThanOrEqual(2);
+}
+
+/** Document y at which an element's "top 85%" reveal start line is reached. */
+const revealLine = (page: Page, selector: string) =>
+  page.locator(selector).evaluate((el) => el.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.85);
+
+/** Lines of the split contact heading that are still masked or moving (0 = revealed). */
+const contactLinesMoving = (page: Page) =>
+  page.$$eval("#contact-title > div > div", (els) =>
+    els.filter((el) => !["none", "matrix(1, 0, 0, 1, 0, 0)"].includes(getComputedStyle(el).transform)).length,
+  );
 
 test("smooth scrolling is active when motion is allowed", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "wheel smoothing is a desktop concern");
@@ -99,4 +138,77 @@ test("a menu link hands focus to its section, not back to the menu button", asyn
   await expect(page.getByRole("dialog")).toBeHidden();
   // The menu's own close effect focuses the burger; the target section must win.
   await expect(page.locator("#partners")).toBeFocused();
+});
+
+/** Desktop: the pinned process still holds and scrubs. Back up into it: step 2 is active, the section held at the top. */
+async function expectPinScrubs(page: Page) {
+  await expect(page.locator(".pin-spacer [data-process]")).toHaveCount(1);
+  const pinStart = await page.locator(".pin-spacer").evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+  const y = pinStart + page.viewportSize()!.height * 0.75; // progress 0.375 of the "+=200%" pin: step 2's stretch
+  await page.evaluate((top) => window.scrollTo(0, top), y);
+  await expect
+    .poll(() => page.locator("[data-step]").evaluateAll((els) => els.map((el) => Number(getComputedStyle(el).opacity))))
+    .toEqual([0.35, 1, 0.35, 0.35]);
+  expect(await page.locator("[data-process]").evaluate((el) => Math.round(el.getBoundingClientRect().top))).toBe(0);
+}
+
+test.describe("hash links from another page", () => {
+  test("a menu link lands on its section, hands it focus, and leaves later reveals and the pin working", async ({ page }, testInfo) => {
+    await page.goto("/disclaimer");
+    await ready(page);
+    await expect(page.locator("html")).toHaveClass(LENIS_CLASS);
+    await page.getByRole("button", { name: "Open menu" }).click();
+    await page.getByRole("dialog").getByRole("link", { name: "Partners" }).click();
+    await expect(page).toHaveURL(/\/#partners$/);
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await expectLanded(page, "partners");
+    await expect(page.locator("#partners")).toBeFocused(); // R16: the section wins over the menu's burger refocus
+    await expect.poll(() => page.locator("#partners-title").evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+
+    // Triggers below the landing spot were measured on the new page (on desktop with the 200 % pin spacer): the contact
+    // heading has not revealed early, and does once it is reached.
+    await expect(page.locator("#contact-title > div > div").first()).toBeAttached();
+    const contact = await revealLine(page, "#contact-title");
+    expect(contact).toBeGreaterThan(await page.evaluate(() => window.scrollY)); // still below the reveal line here
+    expect(await contactLinesMoving(page)).toBeGreaterThan(0);
+    await page.evaluate((top) => window.scrollTo(0, top), contact + 300);
+    await expect.poll(() => contactLinesMoving(page)).toBe(0);
+
+    if (testInfo.project.name === "desktop") await expectPinScrubs(page);
+  });
+
+  test("the footer Contact link lands on the contact section and hands it focus", async ({ page }, testInfo) => {
+    await page.goto("/disclaimer");
+    await ready(page);
+    await expect(page.locator("html")).toHaveClass(LENIS_CLASS);
+    await page.getByRole("navigation", { name: "Footer" }).getByRole("link", { name: "Contact" }).click();
+    await expect(page).toHaveURL(/\/#contact$/);
+    await expectLanded(page, "contact");
+    await expect(page.locator("#contact")).toBeFocused();
+    await expect.poll(() => contactLinesMoving(page)).toBe(0); // its heading reveals where it landed
+
+    if (testInfo.project.name === "desktop") await expectPinScrubs(page);
+  });
+
+  for (const via of ["menu", "footer"] as const) {
+    test(`under reduced motion, the ${via} link lands natively on its section`, async ({ page }, testInfo) => {
+      test.skip(testInfo.project.name !== "desktop", "one reduced-motion run covers the native path");
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.goto("/disclaimer");
+      await ready(page);
+      await expect(page.locator("html")).not.toHaveClass(LENIS_CLASS);
+      const id = via === "menu" ? "partners" : "contact";
+      if (via === "menu") {
+        await page.getByRole("button", { name: "Open menu" }).click();
+        await page.getByRole("dialog").getByRole("link", { name: "Partners" }).click();
+        await expect(page.getByRole("dialog")).toBeHidden();
+      } else {
+        await page.getByRole("navigation", { name: "Footer" }).getByRole("link", { name: "Contact" }).click();
+      }
+      await expect(page).toHaveURL(new RegExp(`/#${id}$`));
+      await expectLanded(page, id);
+      await expect(page.locator(`#${id}`)).toBeFocused();
+      await expect(page.locator(".pin-spacer")).toHaveCount(0);
+    });
+  }
 });
