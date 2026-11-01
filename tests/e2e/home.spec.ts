@@ -37,6 +37,20 @@ test.describe("home page", () => {
     for (const text of ["#services .svc-summary", "#process [data-step-body]", "#partners p", "footer p"]) expect(await wrap(text)).toBe("pretty");
   });
 
+  // mobile-native: taps answer in the palette (not the default grey-blue flash), controls skip the double-tap-to-zoom
+  // wait, and a long press on a button does not select its label.
+  test("taps feel native: palette tap highlight, no double-tap delay, button labels not selectable", async ({ page }) => {
+    await page.goto("/");
+    const style = (selector: string, prop: string) =>
+      page.locator(selector).first().evaluate((el, p) => getComputedStyle(el).getPropertyValue(p), prop);
+    expect(await style("#contact a[href^='tel:']", "-webkit-tap-highlight-color")).toBe("rgba(241, 236, 228, 0.08)");
+    for (const control of ["#contact a[href^='tel:']", "button[aria-controls='site-menu']", "#contact button"]) {
+      expect(await style(control, "touch-action")).toBe("manipulation");
+    }
+    expect(await style("#contact button", "user-select")).toBe("none");
+    expect(await style("#contact a[href^='tel:']", "user-select")).toBe("auto"); // a phone number stays copyable
+  });
+
   // WCAG 2.5.3 label in name (axe / Lighthouse "label-content-name-mismatch"): an aria-label replaces the link's text
   // in its accessible name, so the monogram the link shows was missing from the name it announces.
   test("the header's home link takes its accessible name from the text it shows", async ({ page }) => {

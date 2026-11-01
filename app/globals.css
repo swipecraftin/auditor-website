@@ -54,6 +54,12 @@
 
 @layer base {
   html { background: var(--color-bg); }
+  /* Touch: Tailwind's preflight makes the tap highlight transparent, which left links and service rows with no feedback
+     on a tap. A faint ink tint answers the tap in the palette. Controls skip the double-tap-to-zoom wait, and a long
+     press on a button does not select its label (links stay selectable: a phone number can be copied). */
+  html { -webkit-tap-highlight-color: rgb(241 236 228 / 0.08); }
+  a, button { touch-action: manipulation; }
+  button { user-select: none; }
   body { font-family: var(--font-sans); font-size: var(--text-body); line-height: 1.6; }
   :focus-visible { outline: 2px solid var(--color-brass); outline-offset: 4px; }
   /* Programmatic-only focus targets (hash-link destinations, dialogs): focus lands there, no ring around a whole section. */
