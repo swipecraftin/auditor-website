@@ -3,6 +3,9 @@
 Date: 2026-11-01. Branch `feat/site-v1`. Task 12 of the plan `docs/superpowers/plans/2026-10-31-ca-firm-website.md`.
 Spec: `docs/superpowers/specs/2026-10-31-ca-firm-website-design.md`.
 
+Scratch tools, logs and raw Lighthouse JSON cited as `t12/…` live in `.superpowers/sdd/2026-10-31-ca-firm-website/t12/`.
+That folder is git-ignored and local to the machine that ran this verification.
+
 **Result: the gates pass, and so do the Lighthouse Accessibility, Best Practices and SEO budgets. The Performance budget
 (G5) and the long-task check do not pass.** The real numbers are below, with what the misses come from and the levers
 that were measured.
@@ -284,11 +287,12 @@ Polish pass:
 Captured after the final gate run (`VISUAL=1`), converted to JPEG (max width 1440, quality 75) in
 [`2026-10-31-v1-shots/`](2026-10-31-v1-shots/):
 
-- `desktop-hero.jpg` and `desktop-full.jpg` (1440 × 900 project), plus `frames-desktop-00…07.jpg`, one per viewport.
-- `laptop-1024-hero.jpg`: the shortest full-tier hero (1024 × 768), where the copy meets the fan's crown, with the scrim.
-- `tablet-desktop-full.jpg`: 768 × 1024, fine pointer, full page.
-- `frames-tablet-mobile-00…05.jpg`: 768 × 1024, touch.
-- `mobile-hero.jpg` and `frames-mobile-00…07.jpg`: 390 × 844, touch, DPR 2.
+- Desktop (1440 × 900): [`desktop-hero.jpg`](2026-10-31-v1-shots/desktop-hero.jpg), [`desktop-full.jpg`](2026-10-31-v1-shots/desktop-full.jpg). Frames, one per viewport:
+  [`frames-desktop-00.jpg`](2026-10-31-v1-shots/frames-desktop-00.jpg), [`frames-desktop-01.jpg`](2026-10-31-v1-shots/frames-desktop-01.jpg), [`frames-desktop-02.jpg`](2026-10-31-v1-shots/frames-desktop-02.jpg), [`frames-desktop-03.jpg`](2026-10-31-v1-shots/frames-desktop-03.jpg), [`frames-desktop-04.jpg`](2026-10-31-v1-shots/frames-desktop-04.jpg), [`frames-desktop-05.jpg`](2026-10-31-v1-shots/frames-desktop-05.jpg), [`frames-desktop-06.jpg`](2026-10-31-v1-shots/frames-desktop-06.jpg), [`frames-desktop-07.jpg`](2026-10-31-v1-shots/frames-desktop-07.jpg).
+- [`laptop-1024-hero.jpg`](2026-10-31-v1-shots/laptop-1024-hero.jpg): the shortest full-tier hero (1024 × 768), where the copy meets the fan's crown, with the scrim.
+- [`tablet-desktop-full.jpg`](2026-10-31-v1-shots/tablet-desktop-full.jpg): 768 × 1024, fine pointer, full page.
+- Tablet (768 × 1024, touch) frames: [`frames-tablet-mobile-00.jpg`](2026-10-31-v1-shots/frames-tablet-mobile-00.jpg), [`frames-tablet-mobile-01.jpg`](2026-10-31-v1-shots/frames-tablet-mobile-01.jpg), [`frames-tablet-mobile-02.jpg`](2026-10-31-v1-shots/frames-tablet-mobile-02.jpg), [`frames-tablet-mobile-03.jpg`](2026-10-31-v1-shots/frames-tablet-mobile-03.jpg), [`frames-tablet-mobile-04.jpg`](2026-10-31-v1-shots/frames-tablet-mobile-04.jpg), [`frames-tablet-mobile-05.jpg`](2026-10-31-v1-shots/frames-tablet-mobile-05.jpg).
+- Mobile (390 × 844, touch, DPR 2): [`mobile-hero.jpg`](2026-10-31-v1-shots/mobile-hero.jpg). Frames: [`frames-mobile-00.jpg`](2026-10-31-v1-shots/frames-mobile-00.jpg), [`frames-mobile-01.jpg`](2026-10-31-v1-shots/frames-mobile-01.jpg), [`frames-mobile-02.jpg`](2026-10-31-v1-shots/frames-mobile-02.jpg), [`frames-mobile-03.jpg`](2026-10-31-v1-shots/frames-mobile-03.jpg), [`frames-mobile-04.jpg`](2026-10-31-v1-shots/frames-mobile-04.jpg), [`frames-mobile-05.jpg`](2026-10-31-v1-shots/frames-mobile-05.jpg), [`frames-mobile-06.jpg`](2026-10-31-v1-shots/frames-mobile-06.jpg), [`frames-mobile-07.jpg`](2026-10-31-v1-shots/frames-mobile-07.jpg).
 
 - Full-page desktop captures render the page at scroll 0: the pinned Process section shows its spacer, and
   scroll-revealed blocks show their pre-reveal state.
