@@ -15,13 +15,21 @@ export function HeroMotion() {
         onComplete: () => document.querySelectorAll("[data-hero-fade]").forEach((el) => el.removeAttribute("data-hero-fade")),
       });
     });
-    document.fonts.ready.then(intro);
+    // contextSafe does not skip a callback that fires after the context was reverted; the flag does.
+    let cancelled = false;
+    document.fonts.ready.then(() => {
+      if (!cancelled) intro();
+    });
 
     // M2 (copy) — hero text drifts up and fades by 60 % of the hero scroll
     gsap.to(".hero-copy", {
       y: -80, opacity: 0, ease: "none",
       scrollTrigger: { trigger: "[data-hero]", start: "top top", end: "60% top", scrub: true },
     });
+
+    return () => {
+      cancelled = true;
+    };
   });
 
   return null;

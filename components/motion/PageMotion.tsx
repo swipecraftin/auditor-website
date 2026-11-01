@@ -7,9 +7,13 @@ import { isMotionOk } from "./motion-env";
 
 type SplitMode = "intro" | "lines" | "chars" | "words-scrub";
 
-// Reveal start lines. clamp() keeps a trigger reachable when its element sits in the last viewport of the page
-// (or the page is shorter than the viewport) — a plain "top 85%" would never fire there and the element would stay hidden.
-const START = { reveal: "clamp(top 85%)", line: "clamp(top 90%)", chars: "clamp(top 90%)" } as const;
+// Reveal start lines (spec M3 "top 85%"). They stay unclamped: content that starts above the fold has a negative natural
+// start, so at scroll 0 its trigger is already past the start, is active at load and reveals at once.
+// clamp() would force that start to 0, keep progress at 0 at scroll 0 and leave the content hidden until the first scroll.
+// Only the footer wordmark keeps clamp(): it sits at the very bottom, where its natural start can lie past the maximum
+// scroll (clamp pulls it back to max - 1 so it still fires). Known edge: on a page only slightly taller than the viewport,
+// with the wordmark already above the 90 % line at load, its start clamps to 0 and it waits for the first scroll.
+const START = { reveal: "top 85%", line: "top 90%", chars: "clamp(top 90%)" } as const;
 
 /** Text of a heading with each <br> read as a space (SplitText's own aria-label would glue "Clarity," to "line"). */
 function headingLabel(el: HTMLElement) {
@@ -87,7 +91,15 @@ export function PageMotion() {
         });
         ScrollTrigger.refresh();
       });
-      document.fonts.ready.then(splitAll);
+      // contextSafe only records what splitAll creates in this context; it still runs a callback that fires after the
+      // context was reverted (Strict Mode remount, or a route change before the fonts were ready). The flag stops that.
+      let cancelled = false;
+      document.fonts.ready.then(() => {
+        if (!cancelled) splitAll();
+      });
+      return () => {
+        cancelled = true;
+      };
     },
     { dependencies: [pathname], revertOnUpdate: true },
   );
