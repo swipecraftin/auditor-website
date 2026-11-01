@@ -1,3 +1,4 @@
+import { HeroStage } from "@/components/hero/HeroStage";
 import { site } from "@/content/site";
 
 export function Hero() {
@@ -5,6 +6,7 @@ export function Hero() {
   return (
     <section id="top" data-hero aria-labelledby="hero-title" className="hero relative isolate overflow-hidden">
       <div aria-hidden className="hero-backdrop absolute inset-0 -z-30" />
+      <HeroStage />
 
       <div className="hero-copy absolute inset-x-0 top-32 px-(--gutter) text-center lg:top-40">
         <p data-hero-fade className="label-mono text-muted">{hero.eyebrow}</p>

@@ -204,3 +204,12 @@
 @media (hover: hover) and (pointer: fine) {
   .svc-row:hover .svc-summary { color: var(--color-ink); }
 }
+
+/* 3D hero (Task 10) — the canvas fades in over the backdrop once it has rendered */
+@layer components {
+  .hero-canvas { opacity: 0; transition: opacity 400ms var(--ease-out); }
+  [data-hero-ready="true"] > .hero-canvas { opacity: 1; }
+  /* ?capture=1 — only the 3D scene is visible (used by scripts/render-poster.mjs) */
+  .capture [data-hero] > :not(.hero-canvas):not(.hero-backdrop),
+  .capture [data-site-header] { opacity: 0 !important; }
+}

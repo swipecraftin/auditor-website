@@ -9,6 +9,20 @@ async function ready(page: Page) {
   });
 }
 
+/**
+ * For checks that count animation frames. The e2e browser renders WebGL in software (SwiftShader, on the CPU): while the
+ * live 3D hero mounts (long main-thread tasks) and renders, the page gets few, irregular frames. With WebGL unavailable
+ * the hero takes its poster tier and mounts no canvas, so the count measures only the animation under test.
+ */
+async function withoutWebGL(page: Page) {
+  await page.addInitScript(() => {
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+      return type.startsWith("webgl") ? null : Reflect.apply(getContext, this, [type, ...rest]);
+    } as typeof getContext;
+  });
+}
+
 /** The trap's own notion of the menu's focusable items, last one first in line for Shift+Tab wrapping. */
 const lastMenuItem = (page: Page) => page.getByRole("dialog", { name: "Site menu" }).locator("a[href], button").last();
 
@@ -79,8 +93,10 @@ test("Shift+Tab from the close button wraps to the last item", async ({ page }) 
 });
 
 test("the menu wipes open, settles its items, and reverses closed (M12)", async ({ page }) => {
+  await withoutWebGL(page);
   await page.goto("/");
   await ready(page);
+  await expect(page.locator("[data-hero]")).toHaveAttribute("data-tier", "poster"); // no canvas competes for frames
   // Record every inline clip-path the overlay goes through: an animated wipe writes many, an instant toggle one or two.
   await page.evaluate(() => {
     const el = document.getElementById("site-menu")!;
