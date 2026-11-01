@@ -287,9 +287,9 @@ test("service rows respond to hover", async ({ page }, testInfo) => {
   await expect.poll(() => row.evaluate((el) => getComputedStyle(el, "::before").opacity)).toBe("1");
 });
 
-// Spec G2 / §7.6. Lenis scrolls the page from the main thread, so a resting pointer re-hits whatever passes under it on
-// every frame: each service row or partner card would start its hover transitions on the way past. Lenis marks the root
-// with `lenis-scrolling` while it scrolls; hover styles wait for it to settle, as they do under native scrolling.
+// Spec G2 / §7.6. As the page scrolls under a resting pointer, each service row or partner card on the way past would
+// start its hover transitions. Lenis marks the root with `lenis-scrolling` while it scrolls; hover styles wait for it to
+// settle.
 test("hover effects wait until a smooth scroll settles", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "hover needs a fine pointer");
   await page.goto("/");
