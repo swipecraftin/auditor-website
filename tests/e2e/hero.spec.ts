@@ -41,6 +41,36 @@ test("the live hero stops drawing while it is scrolled out of view", async ({ pa
   await expect.poll(draws).toBeGreaterThan(away); // and resumes when the hero is back
 });
 
+test("the live hero stops drawing while the open menu covers it", async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __draws: number };
+    w.__draws = 0;
+    const proto = WebGL2RenderingContext.prototype as unknown as Record<string, unknown>;
+    for (const name of ["drawArrays", "drawElements", "drawArraysInstanced", "drawElementsInstanced"]) {
+      const original = proto[name];
+      if (typeof original !== "function") continue;
+      proto[name] = function (this: unknown, ...args: unknown[]) {
+        w.__draws++;
+        return Reflect.apply(original, this, args);
+      };
+    }
+  });
+  const draws = () => page.evaluate(() => (window as unknown as { __draws: number }).__draws);
+  await page.goto("/");
+  await expect(page.locator("[data-hero]")).toHaveAttribute("data-hero-ready", "true", { timeout: 30_000 });
+  await expect.poll(draws).toBeGreaterThan(await draws());
+
+  await page.getByRole("button", { name: "Open menu" }).click();
+  await expect(page.locator("#site-menu")).not.toHaveAttribute("inert");
+  await page.waitForTimeout(1000); // the 500 ms wipe, and a frame already queued finishes
+  const covered = await draws();
+  await page.waitForTimeout(1500);
+  expect(await draws()).toBe(covered); // the opaque menu hides the hero: nothing to draw
+
+  await page.keyboard.press("Escape");
+  await expect.poll(draws).toBeGreaterThan(covered); // and it resumes as the menu closes
+});
+
 test("reduced motion uses the poster tier and never mounts a canvas", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");

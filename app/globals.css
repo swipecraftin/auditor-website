@@ -134,8 +134,17 @@
     .link-underline:hover::after { transform: scaleX(1); }
   }
 
-  .btn { transition: transform var(--dur-press) var(--ease-out), border-color var(--dur-ui) var(--ease-out); }
+  .btn { transition: transform var(--dur-press) var(--ease-out); }
   .btn:active { transform: scale(0.97); }
+
+  /* Arrow nudge: the glyph leans 4 px toward where the link goes. */
+  .arrow-nudge { display: inline-block; transition: transform var(--dur-ui) var(--ease-out); }
+  @media (prefers-reduced-motion: no-preference) {
+    a:focus-visible .arrow-nudge { transform: translateX(4px); }
+    @media (hover: hover) and (pointer: fine) {
+      a:hover .arrow-nudge { transform: translateX(4px); }
+    }
+  }
 
   .copy-label { animation: copy-in 160ms var(--ease-out); }
   @keyframes copy-in { from { opacity: 0; transform: translateY(4px); } }

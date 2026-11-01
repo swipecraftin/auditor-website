@@ -22,20 +22,26 @@ export default function HeroCanvas({ tier, capture }: Props) {
     [capture],
   );
 
-  // Stop rendering while the hero is off-screen or the tab is hidden (spec §6).
+  // Stop rendering while the hero is off-screen or the tab is hidden (spec §6), and while the open menu covers it: the
+  // overlay is opaque and the observer still counts the hero as on screen. The menu is inert exactly while it is closed,
+  // so drawing resumes as its close wipe starts to uncover the hero.
   useEffect(() => {
     const hero = wrap.current?.closest("[data-hero]");
     if (!hero) return;
+    const menu = document.getElementById("site-menu");
     let onScreen = true;
-    const update = () => setRunning(onScreen && !document.hidden);
+    const update = () => setRunning(onScreen && !document.hidden && !(menu && !menu.hasAttribute("inert")));
     const io = new IntersectionObserver(([entry]) => {
       onScreen = entry.isIntersecting;
       update();
     });
     io.observe(hero);
+    const menuState = new MutationObserver(update);
+    if (menu) menuState.observe(menu, { attributes: true, attributeFilter: ["inert"] });
     document.addEventListener("visibilitychange", update);
     return () => {
       io.disconnect();
+      menuState.disconnect();
       document.removeEventListener("visibilitychange", update);
     };
   }, []);

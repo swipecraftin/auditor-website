@@ -31,7 +31,9 @@ export function Hero() {
           <span className="text-small font-semibold text-ink">Contact the partners</span>
           <span className="label-mono text-muted">{contact.phone}</span>
         </span>
-        <span aria-hidden className="grid size-10 place-items-center border border-ink">→</span>
+        <span aria-hidden className="grid size-10 place-items-center border border-ink">
+          <span className="arrow-nudge">→</span>
+        </span>
       </a>
 
       <div aria-hidden className="absolute bottom-12 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-3 label-mono text-muted lg:flex">

@@ -25,7 +25,7 @@ export function Contact() {
             {/* data-magnetic sits on a wrapper so the magnetic transform never overrides .btn:active */}
             <span data-magnetic className="mt-4 inline-block">
               <a href={`tel:${tel}`} className="btn inline-flex items-center gap-3 border border-ink px-6 py-4 text-ink">
-                {contact.phone} <span aria-hidden>→</span>
+                {contact.phone} <span aria-hidden className="arrow-nudge">→</span>
               </a>
             </span>
             <CopyEmail email={contact.email} className="mt-6" />

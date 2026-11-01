@@ -339,6 +339,39 @@ test("the contact call button leans toward the pointer, at most 8 px, and settle
   await expect.poll(offset).toEqual({ x: 0, y: 0 });
 });
 
+// M13 "arrow nudge x 4 px": the call button's arrow and the hero corner box's arrow, on hover (fine pointer) and focus.
+const NUDGED = "matrix(1, 0, 0, 1, 4, 0)";
+const arrows = (page: Page) => ({
+  call: page.locator("#contact a[href^='tel:'] .arrow-nudge"),
+  corner: page.locator("[data-hero] a[href='#contact'] .arrow-nudge"),
+});
+
+test("link arrows nudge 4 px on hover", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "hover needs a fine pointer");
+  await page.goto("/");
+  await ready(page);
+  const { call, corner } = arrows(page);
+  await expect(corner).toHaveCSS("transform", "none");
+  await page.locator("[data-hero] a[href='#contact']").hover();
+  await expect(corner).toHaveCSS("transform", NUDGED);
+  const button = page.locator("#contact a[href^='tel:']");
+  await button.scrollIntoViewIfNeeded();
+  await expect(call).toHaveCSS("transform", "none");
+  await button.hover();
+  await expect(call).toHaveCSS("transform", NUDGED);
+});
+
+test("link arrows nudge on keyboard focus too, and stay put under reduced motion", async ({ page }) => {
+  await page.goto("/");
+  await ready(page);
+  const { call } = arrows(page);
+  await page.locator("#contact a[href^='tel:']").focus();
+  await expect(call).toHaveCSS("transform", NUDGED);
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(call).toHaveCSS("transform", "none");
+});
+
 test("reduced motion keeps the header in place and hovers to colour only", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "wheel and hover need a fine pointer");
   await page.emulateMedia({ reducedMotion: "reduce" });
