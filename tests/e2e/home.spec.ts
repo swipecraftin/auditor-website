@@ -58,6 +58,66 @@ test.describe("tablet width", () => {
   });
 });
 
+// break-ui: real names and addresses are longer than the placeholders. An unbreakable email widened the page past the
+// viewport on phones (taking the fixed header, and its menu button, with it), and an 18-letter partner name ran into the
+// next card. Swap in worst-case values where the content renders, then check that everything stays inside its box.
+// Names should also break between words, not inside one: at 1024 px four-up cards split even "Chandrasekhar". The one
+// accepted exception is 640–670 px (two-up, narrowest), where only an 18-letter word does not fit and breaks.
+const LONG_EMAIL = "partners.office@venkataraghavanchandrasekaran.co.in";
+const LONG_NAMES = ["Venkatasubramanian Raghunathan", "Lakshminarayanan Chandrasekhar", "Srinivasaraghavan Padmanabhan", "Jo Rao"];
+for (const width of [320, 640, 1024, 1280, 1440]) {
+  test.describe(`worst-case content at ${width}px`, () => {
+    test.use({ viewport: { width, height: 900 } });
+
+    test("long emails and partner names wrap inside their boxes", async ({ page }) => {
+      await page.goto("/");
+      await page.evaluate(() => document.fonts.ready);
+      const spills = await page.evaluate(({ longEmail, names, wholeWords }) => {
+        document.querySelectorAll<HTMLAnchorElement>("a[href^='mailto:']").forEach((a) => (a.textContent = longEmail));
+        document.querySelectorAll(".partner-name").forEach((el, i) => (el.textContent = names[i % names.length]));
+        const spill = (el: Element, box: Element) => {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          return Math.round(range.getBoundingClientRect().right - box.getBoundingClientRect().right);
+        };
+        const out: string[] = [];
+        document.querySelectorAll(".partner-name").forEach((el) => {
+          const card = el.closest("li")!;
+          const right = spill(el, card) + parseFloat(getComputedStyle(card).paddingRight);
+          if (right > 0) out.push(`${el.textContent} spills its card by ${right}px`);
+          if (wholeWords) {
+            const text = el.firstChild!;
+            for (const match of el.textContent!.matchAll(/\S+/g)) {
+              const word = document.createRange();
+              word.setStart(text, match.index);
+              word.setEnd(text, match.index + match[0].length);
+              const lines = new Set([...word.getClientRects()].map((r) => Math.round(r.top)));
+              if (lines.size > 1) out.push(`"${match[0]}" breaks across lines`);
+            }
+          }
+        });
+        const email = document.querySelector("#contact a[href^='mailto:']")!;
+        const column = email.closest("[data-reveal]")!;
+        if (spill(email, column) > 0) out.push(`contact email spills its column by ${spill(email, column)}px`);
+        return out;
+      }, { longEmail: LONG_EMAIL, names: LONG_NAMES, wholeWords: width !== 640 });
+      expect(spills).toEqual([]);
+      expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+
+      // The menu's email, once it is open.
+      await page.getByRole("button", { name: "Open menu" }).click();
+      const menuEmail = page.locator("#site-menu a[href^='mailto:']");
+      await expect(menuEmail).toBeVisible();
+      const menuSpill = await menuEmail.evaluate((a) => {
+        const range = document.createRange();
+        range.selectNodeContents(a);
+        return range.getBoundingClientRect().right - document.documentElement.clientWidth;
+      });
+      expect(menuSpill).toBeLessThanOrEqual(0);
+    });
+  });
+}
+
 // Regression: the registration number ("000000S") is the widest fact value and used to spill out of its cell
 // (and off the screen at 360 px). Check the facts grid at the narrowest widths and around each layout switch.
 for (const width of [320, 360, 1024, 1280]) {

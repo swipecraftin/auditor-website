@@ -160,7 +160,7 @@ export function MenuOverlay({ open, onClose, returnFocusTo }: MenuOverlayProps) 
       </nav>
       <div data-menu-item className="shell flex flex-wrap gap-x-8 gap-y-2 pb-12 label-mono text-muted">
         <a href={`tel:${tel}`} className="link-underline">{site.contact.phone}</a>
-        <a href={`mailto:${site.contact.email}`} className="link-underline">{site.contact.email}</a>
+        <a href={`mailto:${site.contact.email}`} className="link-underline wrap-anywhere">{site.contact.email}</a>
       </div>
     </div>
   );

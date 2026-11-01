@@ -22,7 +22,8 @@ export function CopyEmail({ email, className = "" }: { email: string; className?
 
   return (
     <div className={`flex flex-wrap items-center gap-4 ${className}`}>
-      <a href={`mailto:${email}`} className="link-underline text-body text-ink">{email}</a>
+      {/* wrap-anywhere: an address has no spaces, and unbroken it would widen the page past a phone's viewport */}
+      <a href={`mailto:${email}`} className="link-underline text-body wrap-anywhere text-ink">{email}</a>
       <button type="button" onClick={copy} className="btn label-mono border border-line px-3 py-2 text-muted">
         <span key={String(copied)} className="copy-label inline-block">{copied ? "Copied" : "Copy email"}</span>
       </button>
