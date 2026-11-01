@@ -1,8 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Component, useCallback, useEffect, useState, type ReactNode } from "react";
+import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { dur, stagger } from "@/lib/motion";
+import { HeroPoster } from "./HeroPoster";
 import { decideHeroTier, readTierEnv, type HeroTier } from "./tier";
 
 const HeroCanvas = dynamic(() => import("./HeroCanvas"), { ssr: false });
@@ -36,12 +37,25 @@ class HeroErrorBoundary extends Component<{ onError: () => void; children: React
 
 export function HeroStage() {
   const [stage, setStage] = useState<Stage | null>(null);
+  // Poster tier, motion allowed: the server-rendered <picture> only selects real images under reduced motion, so these
+  // visitors (low-end device, no WebGL2, renderer failure) get a client copy that always loads.
+  const [forcePoster, setForcePoster] = useState(false);
+  const reducedMotion = useRef(false);
 
   useEffect(() => {
     const capture = new URLSearchParams(window.location.search).has("capture");
     if (capture) document.documentElement.classList.add("capture");
-    const tier: HeroTier = capture ? "full" : decideHeroTier(readTierEnv());
+    const env = readTierEnv();
+    reducedMotion.current = env.reducedMotion;
+    const tier: HeroTier = capture ? "full" : decideHeroTier(env);
     document.querySelector("[data-hero]")?.setAttribute("data-tier", tier);
+    if (tier === "poster") {
+      // No 3D chunk will load, so nothing competes with the headline: show the poster on the next frame, not after the
+      // intro.
+      if (env.reducedMotion) return;
+      const frame = window.requestAnimationFrame(() => setForcePoster(true));
+      return () => window.cancelAnimationFrame(frame);
+    }
     const mount = () => setStage({ tier, capture });
 
     // Loading three.js, creating the WebGL context and compiling the first shaders block the main thread. Start only
@@ -69,8 +83,10 @@ export function HeroStage() {
     hero?.setAttribute("data-tier", "poster");
     hero?.removeAttribute("data-hero-ready"); // in case the scene failed after its first frame
     setStage((s) => (s ? { ...s, tier: "poster" } : s));
+    if (!reducedMotion.current) setForcePoster(true);
   }, []);
 
+  if (forcePoster) return <HeroPoster force />;
   if (!stage || stage.tier === "poster") return null;
   return (
     <HeroErrorBoundary onError={onCanvasError}>

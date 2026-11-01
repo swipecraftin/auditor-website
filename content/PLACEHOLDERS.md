@@ -14,3 +14,5 @@ All live in `content/site.ts` unless noted.
 | contact.phone / email | +91 00000 00000 / office@firmname.in |
 | contact.address / hours / mapUrl | Address line 1, Hyderabad 500 000 … |
 | disclaimer.full | DRAFT — verify against ICAI's current Code of Ethics |
+| app/opengraph-image.alt.txt | Firm Name & Co. — an open ledger whose pages fan into a sunburst under warm light. |
+| app/opengraph-image.png (generated) | Wordmark "Firm Name & Co." baked in from `firm.name` — re-run `npm run poster` after the real name lands |

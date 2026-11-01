@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run --passWithNoTests",
     "test:e2e": "playwright test",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "poster": "next build && node scripts/render-poster.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

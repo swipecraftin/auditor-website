@@ -213,3 +213,9 @@
   .capture [data-hero] > :not(.hero-canvas):not(.hero-backdrop),
   .capture [data-site-header] { opacity: 0 !important; }
 }
+
+/* Poster tier (Task 11) — the client-forced poster (motion allowed) fades in over the backdrop like the canvas does */
+@layer components {
+  .hero-poster-forced { animation: poster-in 400ms var(--ease-out) both; }
+  @keyframes poster-in { from { opacity: 0; } }
+}

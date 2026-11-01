@@ -1,3 +1,4 @@
+import { HeroPoster } from "@/components/hero/HeroPoster";
 import { HeroStage } from "@/components/hero/HeroStage";
 import { site } from "@/content/site";
 
@@ -6,6 +7,7 @@ export function Hero() {
   return (
     <section id="top" data-hero aria-labelledby="hero-title" className="hero relative isolate overflow-hidden">
       <div aria-hidden className="hero-backdrop absolute inset-0 -z-30" />
+      <HeroPoster />
       <HeroStage />
 
       <div className="hero-copy absolute inset-x-0 top-32 px-(--gutter) text-center lg:top-40">
