@@ -92,12 +92,14 @@ export function Header({ menuOpen, onOpen, burgerRef }: HeaderProps) {
       className="site-header fixed inset-x-0 top-0 z-40"
     >
       <div className="flex items-center justify-between px-(--gutter) py-6 lg:py-12">
-        <Link href="/" className="flex items-center gap-4" aria-label={`${firm.name}, home`}>
+        {/* Named by its own text (WCAG 2.5.3 label in name): an aria-label would replace what the link shows. */}
+        <Link href="/" className="flex items-center gap-4">
           <Monogram />
           <span className="flex flex-col gap-1">
             <span className="font-serif text-[17px] font-medium tracking-tight text-ink lg:text-[20px]">{firm.name}</span>
             <span className="hidden font-mono text-[10px] tracking-[0.18em] text-muted uppercase lg:block">{firm.designation}</span>
           </span>
+          <span className="sr-only">, home</span>
         </Link>
         <div className="flex h-12 border border-line lg:h-16">
           <div className="hidden flex-col justify-center gap-1 border-r border-line px-6 font-mono text-[10px] tracking-[0.18em] text-muted uppercase lg:flex">

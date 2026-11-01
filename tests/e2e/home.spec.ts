@@ -27,6 +27,18 @@ test.describe("home page", () => {
     await page.goto("/");
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
   });
+
+  // WCAG 2.5.3 label in name (axe / Lighthouse "label-content-name-mismatch"): an aria-label replaces the link's text
+  // in its accessible name, so the monogram the link shows was missing from the name it announces.
+  test("the header's home link takes its accessible name from the text it shows", async ({ page }) => {
+    await page.goto("/");
+    const link = page.locator("[data-site-header] a[href='/']");
+    await expect(link).not.toHaveAttribute("aria-label");
+    // The firm name it shows leads the name; the monogram is aria-hidden decoration; ", home" is screen-reader text.
+    const shownName = (await link.locator(".font-serif").last().innerText()).trim();
+    const escaped = shownName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    await expect(link).toHaveAccessibleName(new RegExp(`^${escaped}.*, home$`));
+  });
 });
 
 test.describe("tablet width", () => {
