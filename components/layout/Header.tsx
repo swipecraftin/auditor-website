@@ -43,8 +43,12 @@ export function Header({ menuOpen, onOpen, burgerRef }: HeaderProps) {
         }
         state = next;
       };
+      // M11 "focus is inside the header" means keyboard focus, the kind a hidden header would obscure (WCAG 2.4.11).
+      // Pointer focus does not count: a mouse close of the menu refocuses the burger, and wheel scrolling never moves
+      // focus, so `contains(activeElement)` would keep the header pinned in place for the rest of the visit.
+      const focusInside = () => el.querySelector(":focus-visible") !== null;
       const update = (y: number) => {
-        apply(nextHeaderState({ y, lastY, menuOpen: menuOpenRef.current, focusInside: el.contains(document.activeElement), heroHeight }, state));
+        apply(nextHeaderState({ y, lastY, menuOpen: menuOpenRef.current, focusInside: focusInside(), heroHeight }, state));
         lastY = y;
       };
       measure();

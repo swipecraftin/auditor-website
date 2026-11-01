@@ -66,6 +66,86 @@ test("a header hidden on one page is shown, and not solid, at the top of the nex
   await expect(header).toHaveAttribute("data-solid", "false");
 });
 
+/** Scroll down far enough to hide the header, then up a little so it comes back and the burger can be clicked. */
+async function scrollDownThenShowHeader(page: Page) {
+  const header = page.locator("[data-site-header]");
+  await page.mouse.move(720, 450);
+  await page.mouse.wheel(0, 1400);
+  // Let the smooth scroll settle first: a wheel-up sent mid-scroll only lowers a target the page has not reached yet.
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(1350);
+  await expect(header).toHaveCSS("transform", HIDDEN_HEADER);
+  await page.mouse.wheel(0, -300);
+  await expect(header).toHaveCSS("transform", IDENTITY);
+}
+
+test("after the menu is closed with the pointer, the header hides on scroll down again", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "wheel-driven");
+  await page.goto("/");
+  await ready(page);
+  const header = page.locator("[data-site-header]");
+  const burger = page.getByRole("button", { name: "Open menu" });
+  await scrollDownThenShowHeader(page);
+  await burger.click();
+  await page.getByRole("button", { name: "Close menu" }).click();
+  await expect(page.locator("#site-menu")).toHaveCSS("visibility", "hidden");
+  await expect(burger).toBeFocused(); // focus still returns to the burger (Task 6), just not as keyboard focus
+  await page.mouse.move(720, 450);
+  await page.mouse.wheel(0, 600);
+  await expect(header).toHaveCSS("transform", HIDDEN_HEADER);
+});
+
+test("after Escape closes the menu, the header stays while keyboard focus is on the burger", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "wheel-driven");
+  await page.goto("/");
+  await ready(page);
+  const header = page.locator("[data-site-header]");
+  const burger = page.getByRole("button", { name: "Open menu" });
+  await scrollDownThenShowHeader(page);
+  await burger.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Close menu" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#site-menu")).toHaveCSS("visibility", "hidden");
+  await expect(burger).toBeFocused();
+  const before = await page.evaluate(() => window.scrollY);
+  await page.mouse.move(720, 450);
+  await page.mouse.wheel(0, 600);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(before + 400);
+  await page.waitForTimeout(500);
+  await expect(header).toHaveCSS("transform", IDENTITY); // M11: never hidden while (keyboard) focus is inside
+});
+
+for (const from of ["above", "inside", "below"] as const) {
+  test(`the menu's "How we work" link lands at the start of the pinned process from ${from} it`, async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "the pin is desktop-only");
+    await page.goto("/");
+    await ready(page);
+    await expect(page.locator(".pin-spacer [data-process]")).toHaveCount(1);
+    const header = page.locator("[data-site-header]");
+    const section = page.locator("[data-process]");
+    const pinStart = await page.locator(".pin-spacer").evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+    const vh = page.viewportSize()!.height;
+    if (from !== "above") {
+      const max = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+      await scrollToY(page, from === "inside" ? pinStart + vh : max);
+      await expect(header).toHaveCSS("transform", HIDDEN_HEADER);
+      await page.mouse.move(720, 450);
+      await page.mouse.wheel(0, -200); // bring the header (and its burger) back
+      await expect(header).toHaveCSS("transform", IDENTITY);
+    }
+    await page.getByRole("button", { name: "Open menu" }).click();
+    await page.getByRole("dialog").getByRole("link", { name: "How we work" }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    // section[id] { scroll-margin-top: 96px }: the section sits 96 px down, just before the pin starts, on step 1.
+    await expect.poll(() => section.evaluate((el) => Math.round(el.getBoundingClientRect().top))).toBe(96);
+    expect(Math.abs((await page.evaluate(() => window.scrollY)) - (pinStart - 96))).toBeLessThanOrEqual(1);
+    const steps = await page.locator("[data-step]").evaluateAll((els) => els.map((el) => Number(getComputedStyle(el).opacity)));
+    expect(steps).toEqual([1, 0.35, 0.35, 0.35]);
+    const progress = await page.locator("[data-process-progress]").evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a);
+    expect(progress).toBeLessThan(0.01);
+  });
+}
+
 test("process section pins on desktop only", async ({ page }, testInfo) => {
   await page.goto("/");
   await ready(page);

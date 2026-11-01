@@ -34,6 +34,18 @@ function focusTarget(target: HTMLElement) {
   }, 0);
 }
 
+/**
+ * Where a smooth scroll to `target` should stop. Lenis measures an element target from its bounding box, and a pinned
+ * section's box moves with its pin (fixed at the top while pinned, translated by the pin distance after it), so the
+ * landing spot would depend on where the scroll started. For a pinned section, stop at the pin's start line instead,
+ * less its scroll-margin-top, exactly where an unpinned section would land.
+ */
+function scrollDestination(target: HTMLElement): HTMLElement | number {
+  const pin = ScrollTrigger.getAll().find((trigger) => trigger.pin === target);
+  if (!pin) return target;
+  return pin.start - (parseFloat(getComputedStyle(target).scrollMarginTop) || 0);
+}
+
 export function MotionProvider({ children }: { children: React.ReactNode }) {
   const [lenis, setLenis] = useState<Lenis | null>(null);
   const pathname = usePathname();
@@ -64,7 +76,7 @@ export function MotionProvider({ children }: { children: React.ReactNode }) {
       // The menu stops Lenis while open, and its links close it in this same click. Lenis.start() runs reset(), which
       // cancels any running scroll, so restart it before scrolling: the menu's own start() is then a no-op.
       instance.start();
-      instance.scrollTo(target, { force: true }); // Lenis already honours the target's CSS scroll-margin-top
+      instance.scrollTo(scrollDestination(target), { force: true }); // element targets: Lenis honours scroll-margin-top
       if (location.hash !== link.hash) history.pushState(null, "", link.hash);
       focusTarget(target);
     };
