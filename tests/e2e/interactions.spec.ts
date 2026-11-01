@@ -298,10 +298,25 @@ test("hover effects wait until a smooth scroll settles", async ({ page }, testIn
   const card = page.locator(".partner-card").first();
   const rowWash = () => row.evaluate((el) => getComputedStyle(el, "::before").opacity);
   const underline = () => card.locator(".partner-name").evaluate((el) => getComputedStyle(el, "::after").transform);
+  // Stands in for a Lenis scroll: the root carries `lenis-scrolling` until released. Lenis rewrites its root classes
+  // whenever its own scroll state changes (a native scroll, then 400 ms later its end), so the class is held: an observer
+  // puts it back before the next style recalc.
   const scrolling = (on: boolean) =>
-    page.evaluate((value) => document.documentElement.classList.toggle("lenis-scrolling", value), on);
+    page.evaluate((value) => {
+      const root = document.documentElement;
+      const w = window as unknown as { __hold?: MutationObserver };
+      w.__hold?.disconnect();
+      root.classList.toggle("lenis-scrolling", value);
+      if (!value) return;
+      // Only when missing: classList.add rewrites the attribute even when the class is there, which would re-trigger.
+      w.__hold = new MutationObserver(() => {
+        if (!root.classList.contains("lenis-scrolling")) root.classList.add("lenis-scrolling");
+      });
+      w.__hold.observe(root, { attributes: true, attributeFilter: ["class"] });
+    }, on);
+  const hovered = (locator: typeof row) => locator.evaluate((el) => el.matches(":hover"));
 
-  // Lenis clears its own native-scroll state 400 ms after the last scroll event, and rewrites its root classes then.
+  // Lenis clears its own native-scroll state 400 ms after the last scroll event.
   const settle = async () => {
     await page.waitForTimeout(600);
     await expect(page.locator("html")).not.toHaveClass(/lenis-scrolling/);
@@ -311,6 +326,8 @@ test("hover effects wait until a smooth scroll settles", async ({ page }, testIn
   await scrolling(true);
   await row.hover();
   await page.waitForTimeout(400); // twice the 200 ms hover transition
+  expect(await hovered(row)).toBe(true);
+  await expect(page.locator("html")).toHaveClass(/lenis-scrolling/);
   expect(await rowWash()).toBe("0");
   await expect(row.locator(".svc-title")).toHaveCSS("transform", "none");
   await expect(row.locator(".svc-summary")).not.toHaveCSS("color", INK);
@@ -324,6 +341,7 @@ test("hover effects wait until a smooth scroll settles", async ({ page }, testIn
   await scrolling(true);
   await card.hover();
   await page.waitForTimeout(400);
+  expect(await hovered(card)).toBe(true);
   expect(await underline()).toBe("matrix(0, 0, 0, 1, 0, 0)");
   await scrolling(false);
   await expect.poll(underline).toBe(IDENTITY);
