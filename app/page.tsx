@@ -1,4 +1,5 @@
 import { HeroMotion } from "@/components/motion/HeroMotion";
+import { ProcessMotion } from "@/components/motion/ProcessMotion";
 import { Contact } from "@/components/sections/Contact";
 import { Facts } from "@/components/sections/Facts";
 import { Hero } from "@/components/sections/Hero";
@@ -20,6 +21,7 @@ export default function Home() {
       <Contact />
       <JsonLd />
       <HeroMotion />
+      <ProcessMotion />
     </main>
   );
 }

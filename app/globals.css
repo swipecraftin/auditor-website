@@ -157,3 +157,50 @@
 /* SplitText line masks clip at the line box, which shaves descenders at tight line-heights (h1 is 0.94). Reach 0.15em
    below it with clip-path instead of overflow; the inline `overflow: clip` SplitText sets needs !important to lose. */
 .split-line-mask { overflow: visible !important; clip-path: inset(0 0 -0.15em 0); }
+
+/* Interaction motion (Task 9) — M12 overlay closed state, M7 service rows, M9 partner names. Hover transforms sit on the
+   children: the rows and cards are [data-reveal] blocks and keep the reveal's inline transform. */
+@layer components {
+  .menu-overlay { visibility: hidden; clip-path: inset(0 0 100% 0); } /* no flash before hydration */
+  /* Reduced motion opens the menu by switching `visibility` at once. The safety net's 0.01 ms `transition: all` would
+     transition that inherited value on every element inside, which reads `hidden` in the same task, so focusing the
+     close button would fail. A layered !important beats the unlayered one. Pseudo-elements keep the safety net. */
+  @media (prefers-reduced-motion: reduce) {
+    .menu-overlay, .menu-overlay * { transition: none !important; }
+  }
+
+  .svc-row { position: relative; }
+  .svc-row::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: rgb(241 236 228 / 0.03); opacity: 0; transition: opacity var(--dur-ui) var(--ease-out);
+  }
+  .svc-title, .svc-arrow { transition: transform var(--dur-ui) var(--ease-out); }
+  .svc-summary { transition: color var(--dur-ui) var(--ease-out); }
+  .svc-arrow { display: inline-block; transform: rotate(-45deg); }
+  .svc-row:focus-visible::before { opacity: 1; }
+
+  .partner-name { position: relative; }
+  .partner-name::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 1px; background: currentColor;
+    transform: scaleX(0); transform-origin: left center; transition: transform var(--dur-ui) var(--ease-out);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .svc-row:hover::before { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .svc-row:focus-visible .svc-title { transform: translateX(8px); }
+    .svc-row:focus-visible .svc-arrow { transform: translateX(4px) rotate(0deg); }
+    @media (hover: hover) and (pointer: fine) {
+      .svc-row:hover .svc-title { transform: translateX(8px); }
+      .svc-row:hover .svc-arrow { transform: translateX(4px) rotate(0deg); }
+      .partner-card:hover .partner-name::after { transform: scaleX(1); }
+    }
+  }
+}
+
+/* Unlayered, like the initial motion states: the summary's `text-muted` utility sits in a later layer than components. */
+.svc-row:focus-visible .svc-summary { color: var(--color-ink); }
+@media (hover: hover) and (pointer: fine) {
+  .svc-row:hover .svc-summary { color: var(--color-ink); }
+}

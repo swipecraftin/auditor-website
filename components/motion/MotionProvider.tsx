@@ -61,6 +61,9 @@ export function MotionProvider({ children }: { children: React.ReactNode }) {
       const target = hashTarget(link.hash);
       if (!target) return;
       event.preventDefault();
+      // The menu stops Lenis while open, and its links close it in this same click. Lenis.start() runs reset(), which
+      // cancels any running scroll, so restart it before scrolling: the menu's own start() is then a no-op.
+      instance.start();
       instance.scrollTo(target, { force: true }); // Lenis already honours the target's CSS scroll-margin-top
       if (location.hash !== link.hash) history.pushState(null, "", link.hash);
       focusTarget(target);

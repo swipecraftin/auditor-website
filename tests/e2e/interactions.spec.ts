@@ -1,0 +1,253 @@
+import { expect, test, type Page } from "@playwright/test";
+
+const IDENTITY = "matrix(1, 0, 0, 1, 0, 0)";
+const HIDDEN_HEADER = /matrix\(1, 0, 0, 1, 0, -\d+(\.\d+)?\)/;
+const SHOWN_HEADER = /^(none|matrix\(1, 0, 0, 1, 0, 0\))$/;
+const INK = "rgb(241, 236, 228)";
+
+/** Hydration done (`motion-ready`) and, when motion is allowed, Lenis running — controllers attach in that window. */
+async function ready(page: Page) {
+  await page.waitForSelector("html.motion-ready");
+  await page.waitForFunction(() => {
+    const cl = document.documentElement.classList;
+    return !cl.contains("motion-ok") || cl.contains("lenis");
+  });
+}
+
+const scrollToY = (page: Page, y: number) => page.evaluate((top) => window.scrollTo(0, top), y);
+
+/** Document y at which an element's "top 85%" reveal start line is reached. */
+const revealLine = (page: Page, selector: string) =>
+  page.locator(selector).evaluate((el) => el.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.85);
+
+test("header hides on scroll down, returns on scroll up, turns solid after the hero", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "wheel-driven");
+  await page.goto("/");
+  await ready(page);
+  const header = page.locator("[data-site-header]");
+  await page.mouse.move(720, 450);
+  await page.mouse.wheel(0, 1400);
+  await expect(header).toHaveAttribute("data-solid", "true");
+  await expect(header).toHaveCSS("transform", HIDDEN_HEADER);
+  await page.mouse.wheel(0, -300);
+  await expect(header).toHaveCSS("transform", IDENTITY);
+});
+
+test("a hidden header comes back when focus enters it and stays while focus is inside", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "wheel-driven");
+  await page.goto("/");
+  await ready(page);
+  const header = page.locator("[data-site-header]");
+  await page.mouse.move(720, 450);
+  await page.mouse.wheel(0, 1400);
+  await expect(header).toHaveCSS("transform", HIDDEN_HEADER);
+  // preventScroll: a focus that scrolls would re-run the scroll rule and show the header without the focus handling.
+  await page.getByRole("button", { name: "Open menu" }).evaluate((el) => el.focus({ preventScroll: true }));
+  await expect(header).toHaveCSS("transform", IDENTITY);
+  await page.mouse.wheel(0, 600);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(1700);
+  await page.waitForTimeout(500);
+  await expect(header).toHaveCSS("transform", IDENTITY);
+});
+
+test("a header hidden on one page is shown, and not solid, at the top of the next", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "wheel-driven");
+  await page.goto("/");
+  await ready(page);
+  const header = page.locator("[data-site-header]");
+  await page.mouse.move(720, 450);
+  await page.mouse.wheel(0, 1400);
+  await expect(header).toHaveCSS("transform", HIDDEN_HEADER);
+  await expect(header).toHaveAttribute("data-solid", "true");
+  await page.getByRole("navigation", { name: "Footer" }).getByRole("link", { name: "Disclaimer" }).click();
+  await expect(page).toHaveURL(/\/disclaimer$/);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await expect(header).toHaveCSS("transform", SHOWN_HEADER);
+  await expect(header).toHaveAttribute("data-solid", "false");
+});
+
+test("process section pins on desktop only", async ({ page }, testInfo) => {
+  await page.goto("/");
+  await ready(page);
+  if (testInfo.project.name === "desktop") {
+    await expect(page.locator(".pin-spacer [data-process]")).toHaveCount(1);
+  } else {
+    // The mobile branch ran (steps wait for their reveal) and did not pin.
+    await expect(page.locator("[data-step]").first()).toHaveCSS("opacity", "0");
+    await expect(page.locator(".pin-spacer")).toHaveCount(0);
+  }
+});
+
+test("the pinned process holds the section and scrubs through its steps", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "the pin is desktop-only");
+  await page.goto("/");
+  await ready(page);
+  await expect(page.locator(".pin-spacer [data-process]")).toHaveCount(1);
+  const section = page.locator("[data-process]");
+  const start = await section.evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+  const vh = page.viewportSize()!.height;
+  const steps = () => page.locator("[data-step]").evaluateAll((els) => els.map((el) => Number(getComputedStyle(el).opacity)));
+  const top = () => section.evaluate((el) => Math.round(el.getBoundingClientRect().top));
+  const progress = () => page.locator("[data-process-progress]").evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a);
+
+  await scrollToY(page, start + 10);
+  await expect.poll(steps).toEqual([1, 0.35, 0.35, 0.35]);
+  expect(await progress()).toBeLessThan(0.05);
+
+  // end: "+=200%" — progress 0.375 of the pin is step 2's stretch (timeline time 1.125 of 3).
+  await scrollToY(page, start + vh * 0.75);
+  await expect.poll(steps).toEqual([0.35, 1, 0.35, 0.35]);
+  expect(await top()).toBe(0);
+
+  await scrollToY(page, start + vh * 2 - 10);
+  await expect.poll(steps).toEqual([0.35, 0.35, 0.35, 1]);
+  expect(await top()).toBe(0);
+  expect(await progress()).toBeGreaterThan(0.95);
+});
+
+test("reveals below the pinned process fire when they reach the viewport, not before", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "the pin is desktop-only");
+  await page.goto("/");
+  await ready(page);
+  await page.waitForFunction(() => document.fonts.status === "loaded");
+  await expect(page.locator(".pin-spacer [data-process]")).toHaveCount(1);
+  await expect(page.locator("#contact-title > div > div").first()).toBeAttached(); // split triggers exist (after fonts)
+  await page.waitForTimeout(300);
+
+  // A trigger measured without the 200 % pin spacer would start ~1800 px early and have fired at the "before" position.
+  const opacity = () => page.locator("#partners-title").evaluate((el) => getComputedStyle(el).opacity);
+  const partners = await revealLine(page, "#partners-title");
+  await scrollToY(page, partners - 300);
+  await page.waitForTimeout(600);
+  expect(await opacity()).toBe("0");
+  await scrollToY(page, partners + 300);
+  await expect.poll(opacity).toBe("1");
+
+  // Split headings are created after fonts are ready, after the pin: same check on the contact heading's lines.
+  const linesMoving = () =>
+    page.$$eval("#contact-title > div > div", (els) =>
+      els.filter((el) => !["none", "matrix(1, 0, 0, 1, 0, 0)"].includes(getComputedStyle(el).transform)).length,
+    );
+  const contact = await revealLine(page, "#contact-title");
+  await scrollToY(page, contact - 300);
+  await page.waitForTimeout(600);
+  expect(await linesMoving()).toBeGreaterThan(0);
+  await scrollToY(page, contact + 300);
+  await expect.poll(linesMoving).toBe(0);
+});
+
+test("on mobile the process steps reveal as they scroll in", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile", "the unpinned branch is mobile-only");
+  await page.goto("/");
+  await ready(page);
+  const steps = () => page.locator("[data-step]").evaluateAll((els) => els.map((el) => getComputedStyle(el).opacity));
+  await expect.poll(steps).toEqual(["0", "0", "0", "0"]);
+  const last = await revealLine(page, "[data-step]:last-of-type");
+  for (let y = 0; y < last; y += 400) {
+    await scrollToY(page, y);
+    await page.waitForTimeout(100);
+  }
+  await scrollToY(page, last + 200);
+  await expect.poll(steps).toEqual(["1", "1", "1", "1"]);
+});
+
+test("reduced motion never pins", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await ready(page); // motion-ready is set after every controller's mount effect has run
+  await expect(page.locator(".pin-spacer")).toHaveCount(0);
+  const dimmed = await page
+    .locator("[data-step], [data-step-body]")
+    .evaluateAll((els) => els.filter((el) => getComputedStyle(el).opacity !== "1").length);
+  expect(dimmed).toBe(0);
+});
+
+test("service rows respond to hover", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "hover needs a fine pointer");
+  await page.goto("/");
+  await ready(page);
+  const row = page.locator(".svc-row").first();
+  await row.scrollIntoViewIfNeeded();
+  await row.hover();
+  await expect(row.locator(".svc-title")).toHaveCSS("transform", "matrix(1, 0, 0, 1, 8, 0)");
+  await expect(row.locator(".svc-arrow")).toHaveCSS("transform", "matrix(1, 0, 0, 1, 4, 0)");
+  await expect(row.locator(".svc-summary")).toHaveCSS("color", INK);
+  await expect.poll(() => row.evaluate((el) => getComputedStyle(el, "::before").opacity)).toBe("1");
+});
+
+test("service rows mirror the hover on keyboard focus", async ({ page }) => {
+  await page.goto("/");
+  await ready(page);
+  const rows = page.locator(".svc-row");
+  await expect(rows.first().locator(".svc-arrow")).toHaveCSS("transform", /matrix\(0\.70\d*, -0\.70\d*, 0\.70\d*, 0\.70\d*, 0, 0\)/);
+  await rows.nth(1).focus();
+  await page.keyboard.press("Shift+Tab");
+  await expect(rows.first()).toBeFocused();
+  await expect(rows.first().locator(".svc-title")).toHaveCSS("transform", "matrix(1, 0, 0, 1, 8, 0)");
+  await expect(rows.first().locator(".svc-arrow")).toHaveCSS("transform", "matrix(1, 0, 0, 1, 4, 0)");
+  await expect(rows.first().locator(".svc-summary")).toHaveCSS("color", INK);
+});
+
+test("partner names underline on hover", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "hover needs a fine pointer");
+  await page.goto("/");
+  await ready(page);
+  const card = page.locator(".partner-card").first();
+  const underline = () => card.locator(".partner-name").evaluate((el) => getComputedStyle(el, "::after").transform);
+  await card.scrollIntoViewIfNeeded();
+  expect(await underline()).toBe("matrix(0, 0, 0, 1, 0, 0)");
+  await card.hover();
+  await expect.poll(underline).toBe(IDENTITY);
+});
+
+test("the contact call button leans toward the pointer, at most 8 px, and settles back", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "magnetic needs a fine pointer");
+  await page.goto("/");
+  await ready(page);
+  const magnet = page.locator("[data-magnetic]");
+  await magnet.scrollIntoViewIfNeeded();
+  await expect(magnet.locator("xpath=..")).toHaveCSS("transform", IDENTITY); // its reveal block has settled
+  const box = (await magnet.boundingBox())!;
+  const offset = () => magnet.evaluate((el) => {
+    const m = new DOMMatrix(getComputedStyle(el).transform);
+    return { x: Math.round(m.e * 100) / 100, y: Math.round(m.f * 100) / 100 };
+  });
+  expect(await offset()).toEqual({ x: 0, y: 0 });
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.move(box.x + box.width - 2, box.y + box.height - 2, { steps: 4 });
+  await expect.poll(async () => (await offset()).x).toBeGreaterThan(2);
+  await page.waitForTimeout(400);
+  const pulled = await offset();
+  expect(pulled.x).toBeLessThanOrEqual(8);
+  expect(pulled.y).toBeGreaterThan(0);
+  expect(pulled.y).toBeLessThanOrEqual(8);
+  await page.mouse.move(box.x - 200, box.y - 200, { steps: 4 });
+  await expect.poll(offset).toEqual({ x: 0, y: 0 });
+});
+
+test("reduced motion keeps the header in place and hovers to colour only", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "wheel and hover need a fine pointer");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await ready(page);
+  const header = page.locator("[data-site-header]");
+  await page.mouse.move(720, 450);
+  await page.mouse.wheel(0, 1400);
+  await expect(header).toHaveAttribute("data-solid", "true");
+  await page.mouse.wheel(0, 400);
+  await page.waitForTimeout(400);
+  await expect(header).toHaveCSS("transform", "none");
+
+  const row = page.locator(".svc-row").first();
+  await row.scrollIntoViewIfNeeded();
+  await row.hover();
+  await expect(row.locator(".svc-summary")).toHaveCSS("color", INK);
+  await expect(row.locator(".svc-title")).toHaveCSS("transform", "none");
+
+  const magnet = page.locator("[data-magnetic]");
+  await magnet.scrollIntoViewIfNeeded();
+  const box = (await magnet.boundingBox())!;
+  await page.mouse.move(box.x + box.width - 2, box.y + box.height - 2, { steps: 4 });
+  await page.waitForTimeout(400);
+  await expect(magnet).toHaveCSS("transform", "none");
+});

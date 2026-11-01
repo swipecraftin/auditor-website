@@ -71,9 +71,12 @@ test("smooth hash scrolls honour scroll-margin-top and land below the fixed head
 
 test("the skip link keeps its native focus behaviour", async ({ page }) => {
   await page.goto("/");
+  await expect(page.locator("html")).toHaveClass(LENIS_CLASS); // hydrated: the smooth-scroll handler takes the click
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Skip to content" })).toBeFocused();
   await page.keyboard.press("Enter");
+  // The handler moves focus in a setTimeout(0) (R16); a Tab sent within the same few milliseconds can beat it.
+  await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe("main");
   await page.keyboard.press("Tab");
   // Native fragment navigation moves the focus starting point into <main>; a preventDefault'd smooth scroll must keep that.
   expect(await page.evaluate(() => Boolean(document.activeElement?.closest("main")))).toBe(true);

@@ -3,6 +3,7 @@ import { Fraunces, IBM_Plex_Mono, Manrope } from "next/font/google";
 import "lenis/dist/lenis.css";
 import { Footer } from "@/components/layout/Footer";
 import { SiteChrome } from "@/components/layout/SiteChrome";
+import { MagneticController } from "@/components/motion/MagneticController";
 import { MotionProvider } from "@/components/motion/MotionProvider";
 import { PageMotion } from "@/components/motion/PageMotion";
 import { site } from "@/content/site";
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           {children}
           <Footer />
           <PageMotion />
+          <MagneticController />
         </MotionProvider>
       </body>
     </html>
